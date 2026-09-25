@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from phase3_vet import CHECKS, OUT, PLOTS, jpath, load_json  # noqa: E402
+from phase3_vet import CHECKS, OUT, PLOTS, edge_results, jpath, load_json  # noqa: E402
 from tesshunt import vetting as v  # noqa: E402
 from tesshunt.plotting import binned  # noqa: E402
 
@@ -45,10 +45,15 @@ def collect(tg):
                      dbic_alt=sh["dbic_alt"], dbic_box=sh["dbic_box"],
                      best_alt=sh["best_alt"], fit_t0=tr["t0"], fit_rp=tr["rp"],
                      fit_t14_h=tr["t14_h"], fit_b=tr["b"], fit_depth_ppm=tr["depth_ppm"],
-                     grazing=tr["grazing"], duration=du["passed"], t_min_h=du.get("t_min_h"),
+                     grazing=tr["grazing"], duration=v.duration_passes(du),
+                     duration_too_long=bool(du.get("p_b0_d", 0) > v.DUR_P_MAX),
+                     t_min_h=du.get("t_min_h"),
                      p_b0_d=du.get("p_b0_d"), duration_note=du.get("note", ""),
-                     edge=ed["passed"], near_edge=ed.get("near_edge"),
+                     edge_lc=ed["passed"], near_edge=ed.get("near_edge"),
                      edge_resolved=ed.get("resolved"))
+        if lc and lc["status"] == "ok":
+            e_lc, e_px = edge_results(k)
+            o.update(edge_pixels=e_px, edge=bool(e_lc or e_px))
         o["pix_status"] = px["status"] if px else "not run"
         if px and px["status"] == "ok":
             p, c, n = px["pixels"], px["pixels"]["centroid"], px["pixels"]["neighbours"]
@@ -231,7 +236,8 @@ def check_lines(r):
          f"T14 {f(r.get('fit_t14_h'), '.1f')} h vs min {f(r.get('t_min_h'), '.1f')} h (P>20 d) "
          f"{r.get('duration_note') or ''}"),
         ("3 Edge", _b(r.get("edge")),
-         f"near edge: {r.get('near_edge')}, resolved: {r.get('edge_resolved')}"),
+         f"PDCSAP: {'pass' if r.get('edge_lc') else 'fail'} (near edge {r.get('near_edge')}); "
+         f"TESScut: {'pass' if r.get('edge_pixels') else ('fail' if r.get('edge_pixels') is False else '-')}"),
         ("4a Centroid", _b(r.get("centroid")),
          f"offset {f(r.get('centroid_offset_px'), '.2f')} px ({f(r.get('centroid_sigma'), '.1f')} sig), "
          f"diff SNR {f(r.get('diff_snr'), '.0f')}"
@@ -248,6 +254,25 @@ def check_lines(r):
          f"FPP {f(r.get('fpp_value'), '.3f')}  NFPP {f(r.get('nfpp_value'), '.3f')}  "
          f"P {f(r.get('p_lo'), '.0f')}-{f(r.get('p_hi'), '.0f')} d"),
     ]
+
+
+def review_notes(r):
+    """Things a human should look at on the vetting sheet."""
+    notes = []
+    if r.fit_t14_h > 30:
+        notes.append("very long dip: compare with stellar variability")
+    if r.fit_b > 1 - r.fit_rp:
+        notes.append("grazing/V-shaped: EB-like geometry")
+    off, sig = r.get("centroid_offset_px"), r.get("centroid_sigma")
+    if off is not None and np.isfinite(off) and off > 0.5 and sig > 5:
+        notes.append(f"centroid offset {off:.2f} px at {sig:.0f} sigma")
+    if r.get("centroid_inconclusive"):
+        notes.append("difference image too faint for a centroid")
+    if r.get("n_unresolved", 0):
+        notes.append("neighbour inside the target pixel")
+    if r.fit_depth_ppm > 20000:
+        notes.append("deep (>2 %): check for stellar companion")
+    return "; ".join(notes)
 
 
 def funnel_figure(fn, path):
@@ -285,12 +310,13 @@ def report(tg):
 
     surv = surv.copy()
     surv["new"] = ~surv.known.astype(bool)
+    surv["review_notes"] = [review_notes(r) for _, r in surv.iterrows()]
     surv = surv.sort_values(["new", "fpp_value", "snr"], ascending=[False, True, False])
     surv.insert(0, "shortlist_rank", np.arange(1, len(surv) + 1))
     cols = ["shortlist_rank", "tic", "tier", "tmag", "rstar", "fit_t0", "fit_depth_ppm",
             "fit_t14_h", "fit_b", "snr", "dbic_alt", "dbic_box", "p_b0_d", "fpp_value",
             "nfpp_value", "p_lo", "p_hi", "centroid_offset_px", "n_unresolved", "tois", "ctois",
-            "new"]
+            "new", "review_notes"]
     surv[cols].to_csv(os.path.join(OUT, "shortlist.csv"), index=False, float_format="%.5g")
     for _, r in surv.iterrows():
         sheet(r, os.path.join(PLOTS, "sheets", f"{int(r.shortlist_rank):02d}_tic{r.tic}.png"))
@@ -324,9 +350,9 @@ def report(tg):
             for name, g in (("planets", val[~val.known_fp]), ("known_false_positives",
                                                               val[val.known_fp]))},
         shape_with_box_rule=dict(
-            candidates_fail_extra=int(((cand.shape == True) & (cand.shape_strict_box == False)).sum()),  # noqa: E712
-            validation_fail_extra=int(((val.shape == True) & (val.shape_strict_box == False)
-                                       & ~val.known_fp).sum())),  # noqa: E712
+            candidates_fail_extra=int((cand["shape"] & ~cand["shape_strict_box"]).sum()),
+            validation_fail_extra=int((val["shape"] & ~val["shape_strict_box"]
+                                       & ~val.known_fp).sum())),
         errors={s: df[f"{s}_status"].value_counts().to_dict() for s in ("lc", "pix", "fpp")},
     )
     with open(os.path.join(OUT, "summary.json"), "w") as fh:

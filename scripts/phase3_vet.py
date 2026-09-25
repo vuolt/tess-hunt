@@ -152,15 +152,39 @@ def lc_job(row):
         return k, "error"
 
 
-def passed_lc(k):
+def lc_ok(k):
+    """Checks 1-2 (shape, duration) from the cached light-curve result."""
     p = jpath("lc", k)
     if not os.path.exists(p):
         return None
     r = load_json(p)
     if r["status"] != "ok":
         return None
-    shape = v.shape_passes(r["shape"]["dbic_alt"], r["shape"]["dbic_box"])
-    return shape and r["duration"]["passed"] and r["edge"]["passed"]
+    return v.shape_passes(r["shape"]["dbic_alt"], r["shape"]["dbic_box"]) and \
+        v.duration_passes(r["duration"])
+
+
+def edge_results(k):
+    """Check 3 on the PDCSAP light curve and, if a pixel cutout exists, on the
+    TESScut aperture light curve (which keeps cadences PDCSAP blanks near
+    orbit boundaries). Returns (lc_edge, pixel_edge or None)."""
+    r = load_json(jpath("lc", k))
+    lc_edge = r["edge"]["passed"]
+    pz = jpath("pix", k, "npz")
+    if not os.path.exists(pz):
+        return lc_edge, None
+    d = np.load(pz)
+    tr = r["shape"]["transit"]
+    pe = v.edge_check(d["tl"], d["fl"], tr["t0"], tr["t14_h"], tr["depth_ppm"] * 1e-6)
+    return lc_edge, pe["passed"]
+
+
+def passed_lc(k):
+    ok = lc_ok(k)
+    if not ok:
+        return ok
+    lc_edge, pix_edge = edge_results(k)
+    return bool(lc_edge or pix_edge)
 
 
 # ---------------------------------------------------------------- stage: pixels
@@ -331,8 +355,10 @@ def main():
         todo = rows
         fn, threads = lc_job, False
     elif args.stage == "pixels":
-        todo = [r for r in rows if passed_lc(r["key"]) or
-                (r["is_validation"] and passed_lc(r["key"]) is not None)]
+        # Pixels are needed for everything passing checks 1-2: the edge check
+        # can also be satisfied by the TESScut aperture light curve.
+        todo = [r for r in rows if lc_ok(r["key"]) or
+                (r["is_validation"] and lc_ok(r["key"]) is not None)]
         fn, threads = pixel_job, True
     else:
         todo = [r for r in rows if (passed_lc(r["key"]) and passed_pix(r["key"], r["snr"])) or

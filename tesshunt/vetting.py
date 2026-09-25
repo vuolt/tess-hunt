@@ -212,6 +212,8 @@ SHAPE_DBIC_BOX = -np.inf   # optional: box must not be preferred by more than th
                            # (2/28) as often as candidates (24/474); see RESULTS.md.
 DUR_P_MIN = 20.0           # d; the orbit we want to remain possible
 DUR_FRAC = 0.5             # allow T14 down to this fraction of the central duration
+DUR_P_MAX = 36525.0        # d; a dip needing P > 100 yr even for b = 0 is rejected
+                           # (still ~12 yr allowed for an eccentric, e = 0.6, orbit)
 GRAZE_B = 0.9              # impact parameter above which the fit counts as grazing
 EDGE_GAP_H = 1.0           # a gap longer than this (h) is a data edge
 EDGE_H = 3.0               # dips whose ingress/egress is within this of an edge...
@@ -473,6 +475,11 @@ def duration_check(t14_h, b, rp, rstar, mstar, grazing):
     A central transit at P = DUR_P_MIN lasts T_c; non-zero impact parameter or
     eccentricity can shorten it, so durations down to DUR_FRAC * T_c pass.
     Shorter dips pass only if the transit fit itself says the dip is grazing.
+
+    Also reports p_b0_d, the period a central circular transit of this
+    duration needs. Any other impact parameter needs a longer period, so this
+    is the minimum circular period; dips needing more than DUR_P_MAX are too
+    long to be a plausible transit (see duration_passes).
     """
     if not (np.isfinite(rstar) and rstar > 0):
         return dict(passed=True, note="no stellar radius", t_min_h=np.nan, p_b0_d=np.nan)
@@ -481,9 +488,16 @@ def duration_check(t14_h, b, rp, rstar, mstar, grazing):
     tc = central_duration_h(DUR_P_MIN, rstar, mstar, rp)
     tmin = DUR_FRAC * tc
     p0 = period_from_duration(t14_h, rstar, mstar, 0.0, rp)
-    ok = t14_h >= tmin or grazing
+    ok = (t14_h >= tmin or grazing) and not (np.isfinite(p0) and p0 > DUR_P_MAX)
     note = "grazing" if (t14_h < tmin and grazing) else ""
     return dict(passed=bool(ok), t_central_h=tc, t_min_h=tmin, p_b0_d=p0, note=note)
+
+
+def duration_passes(res):
+    """Re-apply the duration decision (incl. the DUR_P_MAX limit) to a stored result."""
+    p0 = res.get("p_b0_d", np.nan)
+    too_long = p0 is not None and np.isfinite(p0) and p0 > DUR_P_MAX
+    return bool(res["passed"] and not too_long)
 
 
 # ------------------------------------------------------------------ edge

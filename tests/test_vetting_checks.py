@@ -70,6 +70,11 @@ def test_duration_check():
     g = v.duration_check(1.0, 0.95, 0.05, 1.0, 1.0, True)
     assert g["passed"] and g["note"] == "grazing"
     assert v.duration_check(1.2, 0.2, 0.05, 0.25, 0.25, False)["passed"]   # M dwarf: T_c ~ 2 h
+    # 70 h on a K dwarf needs P > 100 yr even for a central transit
+    long = v.duration_check(70.0, 0.5, 0.1, 0.8, 0.8, False)
+    assert long["p_b0_d"] > v.DUR_P_MAX and not long["passed"]
+    assert not v.duration_passes(dict(passed=True, p_b0_d=5e4))
+    assert v.duration_passes(dict(passed=True, p_b0_d=500.0))
 
 
 # ---------------------------------------------------------------- 3 edge

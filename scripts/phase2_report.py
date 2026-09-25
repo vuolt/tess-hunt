@@ -18,12 +18,9 @@ import json
 import os
 import sqlite3
 import sys
-import urllib.parse
-import urllib.request
 
 import numpy as np
 import pandas as pd
-from scipy.stats import poisson
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -37,87 +34,12 @@ from tesshunt import ffi  # noqa: E402
 from tesshunt.detect import Event  # noqa: E402
 from tesshunt.plotting import binned, event_figure  # noqa: E402
 from tesshunt.survey import analyse  # noqa: E402
-
-CM_BIN_D = 0.25        # common-mode time bin
-CM_PVALUE = 1e-4       # Poisson tail probability for a bin to count as common-mode
-BTJD = 2457000.0
-
+from tesshunt.vetting import CM_BIN_D, fetch_tois, toi_recall, vet  # noqa: E402
 
 def load(db_path):
     db = sqlite3.connect(db_path)
     return (pd.read_sql("SELECT * FROM stars", db), pd.read_sql("SELECT * FROM dips", db),
             pd.read_sql("SELECT * FROM injections", db))
-
-
-def common_mode_bins(t0, bin_d=CM_BIN_D, pvalue=CM_PVALUE):
-    """Time bins holding far more dips (from different stars) than typical.
-
-    Returns (edges, counts, flagged_bin_mask, expected_rate)."""
-    edges = np.arange(np.floor(t0.min()), np.ceil(t0.max()) + bin_d, bin_d)
-    counts, _ = np.histogram(t0, edges)
-    lam = float(np.median(counts[counts > 0]))
-    flagged = poisson.sf(counts - 1, lam) < pvalue
-    return edges, counts, flagged, lam
-
-
-def fetch_tois(tics):
-    q = ("select tid,toi,tfopwg_disp,pl_orbper,pl_tranmid,pl_trandurh,pl_trandep from toi")
-    url = ("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query="
-           + urllib.parse.quote(q) + "&format=csv")
-    try:
-        with urllib.request.urlopen(url, timeout=120) as r:
-            tois = pd.read_csv(r)
-    except Exception as e:  # noqa: BLE001
-        print(f"TOI table unavailable ({e}); skipping cross-match")
-        return pd.DataFrame(columns=["tid", "toi", "tfopwg_disp", "pl_orbper",
-                                     "pl_tranmid", "pl_trandurh", "pl_trandep"])
-    return tois[tois.tid.isin(set(tics))]
-
-
-def match_toi(dips, tois):
-    """Name of a TOI whose ephemeris predicts a transit at the dip time."""
-    out = np.full(len(dips), "", dtype=object)
-    host = np.full(len(dips), "", dtype=object)
-    by_tic = {k: g for k, g in tois.groupby("tid")}
-    for i, (tic, t0) in enumerate(zip(dips.tic.values, dips.t0.values)):
-        g = by_tic.get(tic)
-        if g is None:
-            continue
-        host[i] = ",".join(str(x) for x in g.toi)
-        for _, r in g.iterrows():
-            if not (np.isfinite(r.pl_orbper) and np.isfinite(r.pl_tranmid)) or r.pl_orbper <= 0:
-                continue
-            tm = r.pl_tranmid - BTJD
-            n = np.round((t0 - tm) / r.pl_orbper)
-            tol = max((r.pl_trandurh if np.isfinite(r.pl_trandurh) else 3) / 24, 0.1)
-            if abs(t0 - (tm + n * r.pl_orbper)) < tol:
-                out[i] = str(r.toi)
-                break
-    return out, host
-
-
-def vet(stars, dips, tois):
-    d = dips.merge(stars[["tic", "tmag", "teff", "radius", "window_d", "max_dur_h",
-                          "long_limited", "hf_variable", "var_period_d", "var_amp_ppm",
-                          "sigma_pt_ppm", "crowdsap"]], on="tic", how="left")
-    edges, counts, flagged, lam = common_mode_bins(d.t0.values)
-    b = np.clip(np.digitize(d.t0.values, edges) - 1, 0, len(counts) - 1)
-    d["common_mode"] = flagged[b]
-    d["near_edge"] = (d.edge_dist_h < d.duration_h)
-    clean = ~d.common_mode & ~d.near_edge
-    d["n_dips_star"] = d.groupby("tic").t0.transform("size")
-    d["n_clean_star"] = clean.groupby(d.tic).transform("sum")
-    d["toi_match"], d["toi_host"] = match_toi(d, tois)
-
-    cat = np.where(d.common_mode, "common_mode",
-          np.where(d.near_edge, "edge",
-          np.where(d.n_clean_star >= 2, "multi", "single")))
-    d["category"] = cat
-    d["candidate"] = (d.category == "single") & (d.hf_variable == 0)
-    d = d.sort_values("snr", ascending=False).reset_index(drop=True)
-    d.insert(0, "rank", np.arange(1, len(d) + 1))
-    cm = dict(edges=edges, counts=counts, flagged=flagged, lam=lam)
-    return d, cm
 
 
 # ---------------------------------------------------------------- figures
@@ -130,14 +52,17 @@ def fig_times(d, cm, path):
     ax.axhline(cm["lam"], color="k", ls=":", lw=1, label=f"median {cm['lam']:.0f} per bin")
     ax.set_yscale("log")
     ax.set_ylabel(f"dips per {CM_BIN_D:g} d")
-    ax.set_title("All dips: bins in red are common-mode (Poisson p < 1e-4), i.e. systematics")
+    ax.set_title("All dips vs time; red bins: sector-wide pile-ups (Poisson p < 1e-4), i.e. systematics")
     ax.legend(fontsize=8)
     ax = axes[1]
     cand = d[d.candidate]
-    ax.hist(cand.t0, bins=e, color="C0")
+    ax.hist(cand.t0, bins=e, color="C0", label=f"all candidates ({len(cand)})")
+    ax.hist(cand.t0[cand.tier == "A"], bins=e, color="C2",
+            label=f"tier A ({(cand.tier == 'A').sum()})")
     ax.set_ylabel("candidates")
     ax.set_xlabel("Time [BTJD]")
-    ax.set_title("Single-dip candidates after vetting")
+    ax.set_title("Single-dip candidates after vetting (a real population would be flat in time)")
+    ax.legend(fontsize=8)
     fig.tight_layout()
     fig.savefig(path, dpi=110)
     plt.close(fig)
@@ -147,7 +72,7 @@ def fig_dips(d, path):
     fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
     ax = axes[0]
     bins = np.logspace(np.log10(7), np.log10(max(d.snr.max(), 8)), 40)
-    for c in ["common_mode", "edge", "multi", "single"]:
+    for c in ["common_mode", "repeating", "secondary", "single_partial", "single"]:
         ax.hist(d.snr[d.category == c], bins=bins, histtype="step", lw=1.5,
                 label=f"{c} ({(d.category == c).sum()})")
     ax.set_xscale("log")
@@ -239,8 +164,22 @@ def _snr_axis(ax):
     ax.xaxis.set_minor_locator(NullLocator())
 
 
-def fig_sensitivity(inj, path):
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+TMAG_BINS = [0, 10, 11, 12, 13]
+DEPTH_BINS = np.array([100, 316, 562, 1000, 1778, 3162, 5623, 10000, 31623, 1e5])
+
+
+def depth_table(inj, stars):
+    """Recovery vs injected depth, per Tmag bin and duration (full-window stars)."""
+    g = inj.merge(stars[["tic", "tmag"]], on="tic")
+    g = g[(g.long_limited == 0) & (g.hf_variable == 0)]
+    g["tmag_bin"] = pd.cut(g.tmag, TMAG_BINS).astype(str)
+    g["depth_lo"] = DEPTH_BINS[np.clip(np.digitize(g.depth_ppm, DEPTH_BINS) - 1, 0, len(DEPTH_BINS) - 2)]
+    return (g.groupby(["tmag_bin", "duration_h", "depth_lo"]).recovered
+            .agg(n="size", frac="mean").reset_index())
+
+
+def fig_sensitivity(inj, path, table=None):
+    fig, axes = plt.subplots(1, 4, figsize=(20, 4.5))
     groups = [("all", inj),
               ("full window", inj[(inj.long_limited == 0) & (inj.hf_variable == 0)]),
               ("long-limited", inj[inj.long_limited == 1]),
@@ -283,6 +222,17 @@ def fig_sensitivity(inj, path):
     ax.set_ylim(-0.03, 1.03)
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3)
+    ax = axes[3]
+    if table is not None:
+        t = table[(table.duration_h == 8) & (table.n >= 4)]
+        for tb, g in t.groupby("tmag_bin"):
+            ax.plot(g.depth_lo * 1.33, g.frac, "o-", label=f"T {tb}")
+    ax.set_xscale("log")
+    ax.set_xlabel("injected depth [ppm] (bin centre)")
+    ax.set_title("8 h transits, full-window stars, by Tmag", fontsize=9)
+    ax.set_ylim(-0.03, 1.03)
+    ax.legend(fontsize=8)
+    ax.grid(alpha=0.3)
     fig.tight_layout()
     fig.savefig(path, dpi=110)
     plt.close(fig)
@@ -314,7 +264,9 @@ def plot_top(d, sector, outdir, tmp, n=100):
             continue
         for _, r in g.iterrows():
             ev = Event(r.t0, r.duration_h / 24, r.depth_ppm * 1e-6, r.snr, sector)
-            flags = [r.category] + (["TOI " + r.toi_match] if r.toi_match else []) \
+            flags = [r.category] + (["TOI " + r.toi_match] if isinstance(r.toi_match, str)
+                                    and r.toi_match else []) \
+                + ([f"{r.rp_rjup:.1f} RJ"] if np.isfinite(r.rp_rjup) else []) \
                 + (["long-limited"] if r.long_limited else []) \
                 + (["fast-var"] if r.hf_variable else [])
             title = (f"#{r['rank']}  TIC {tic}  T={r.tmag:.1f}  S{sector}  "
@@ -324,8 +276,28 @@ def plot_top(d, sector, outdir, tmp, n=100):
     print(f"  top-{n} plots -> {outdir}")
 
 
+# Known long-period planets used as end-to-end checks: TIC -> (label, T0 in BTJD
+# of the transit in this sector, from the NASA Exoplanet Archive TOI table).
+VALIDATION = {298663873: ("TOI-2180 b, P = 260 d", 2611.4455)}
+
+
+def plot_validation(d, sector, outdir, tmp):
+    for tic, (label, t_known) in VALIDATION.items():
+        g = d[d.tic == tic]
+        if g.empty:
+            print(f"  validation TIC {tic}: no dip recorded")
+            continue
+        r = g.iloc[0]
+        var, cfg, ss = star_search(tic, sector, tmp)
+        ev = Event(r.t0, r.duration_h / 24, r.depth_ppm * 1e-6, r.snr, sector)
+        title = (f"{label} (TIC {tic}) in S{sector} FFI: rank #{r['rank']}, "
+                 f"category {r.category}, tier {r.tier or '-'}")
+        event_figure(ss, ev, title, os.path.join(outdir, f"validation_tic{tic}.png"),
+                     cfg.threshold, [t_known], known_label="TOI-table T0", dpi=100)
+
+
 def contact_sheet(d, sector, path, tmp, n=50):
-    cand = d[d.candidate].head(n)
+    cand = d[d.tier == "A"].head(n)
     cols = 5
     rows = int(np.ceil(len(cand) / cols))
     fig, axes = plt.subplots(rows, cols, figsize=(3.2 * cols, 2.3 * rows))
@@ -345,14 +317,17 @@ def contact_sheet(d, sector, path, tmp, n=50):
             ax.plot((tb - r.t0) * 24, fb, "o", ms=2.5, color="C0")
         tt = np.linspace(-w, w, 500)
         ax.plot(tt * 24, np.where(np.abs(tt) < dur / 2, 1 - r.depth_ppm * 1e-6, 1), "C3", lw=1)
-        ax.set_title(f"#{r['rank']} TIC {r.tic}\nSNR {r.snr:.0f}, {r.depth_ppm:.0f} ppm, "
-                     f"{r.duration_h:g} h{' TOI ' + r.toi_match if r.toi_match else ''}",
+        toi = f" TOI {r.toi_match}" if isinstance(r.toi_match, str) and r.toi_match else ""
+        part = " partial" if r.partial else ""
+        ax.set_title(f"#{r['rank']} TIC {r.tic} T={r.tmag:.1f}{toi}\nSNR {r.snr:.0f}, "
+                     f"{r.depth_ppm:.0f} ppm, {r.duration_h:g} h, {r.rp_rjup:.1f} RJ{part}",
                      fontsize=7)
         ax.tick_params(labelsize=6)
     for ax in list(axes.flat)[len(cand):]:
         ax.set_axis_off()
-    fig.suptitle(f"Top {len(cand)} vetted single-dip candidates, S{sector} (hours from dip centre)")
-    fig.tight_layout()
+    fig.suptitle(f"Top {len(cand)} tier-A single-dip candidates, S{sector} "
+                 f"(hours from dip centre)")
+    fig.tight_layout(rect=(0, 0, 1, 0.985))
     fig.savefig(path, dpi=80)
     plt.close(fig)
 
@@ -376,20 +351,31 @@ def main():
           f"{len(inj)} injections")
 
     tois = fetch_tois(stars.tic.values)
-    d, cm = vet(stars, dips, tois)
+    coords = pd.read_csv(os.path.join(work, f"{tag}_sample.csv"), usecols=["ID", "ra", "dec"])
+    d, cm = vet(stars, dips, tois, coords.rename(columns={"ID": "tic"}))
 
     stars.sort_values("tic").to_csv(os.path.join(out, f"{tag}_stars.csv.gz"), index=False,
                                     float_format="%.6g")
     d.to_csv(os.path.join(out, f"{tag}_dips.csv"), index=False, float_format="%.6g")
     d[d.candidate].to_csv(os.path.join(out, f"{tag}_candidates.csv"), index=False,
                           float_format="%.6g")
+    # Data windows: where dips occur at all (orbit gap has none).
+    tt = np.sort(d.t0.values)
+    gi = np.argmax(np.diff(tt))
+    windows = [(tt[0], tt[gi]), (tt[gi + 1], tt[-1])]
+    rec = toi_recall(d, tois, set(ok.tic), windows)
+    rec.to_csv(os.path.join(out, f"{tag}_toi_recall.csv"), index=False, float_format="%.6g")
     inj.to_csv(os.path.join(out, f"{tag}_injections.csv"), index=False, float_format="%.6g")
 
     fig_times(d, cm, os.path.join(plots, "detection_times.png"))
     fig_dips(d, os.path.join(plots, "dip_distributions.png"))
     fig_variability(stars, os.path.join(plots, "variability_windows.png"))
+    table = None
     if len(inj):
-        fig_sensitivity(inj, os.path.join(plots, "sensitivity.png"))
+        table = depth_table(inj, stars)
+        table.to_csv(os.path.join(out, f"{tag}_sensitivity_by_tmag.csv"), index=False,
+                     float_format="%.4g")
+        fig_sensitivity(inj, os.path.join(plots, "sensitivity.png"), table)
 
     # Summary numbers
     sel_counts = {}
@@ -414,14 +400,39 @@ def main():
         dips=len(d),
         category_counts=d.category.value_counts().to_dict(),
         candidates=int(d.candidate.sum()),
+        candidates_partial=int((d.candidate & d.partial).sum()),
+        candidates_planet_sized=int((d.candidate & d.planet_sized).sum()),
+        candidates_in_crowded_bins=int((d.candidate & d.crowded_time_bin).sum()),
+        tier_a=int((d.tier == "A").sum()),
+        tier_a_snr_gt_10=int(((d.tier == "A") & (d.snr > 10)).sum()),
+        tier_a_snr_gt_15=int(((d.tier == "A") & (d.snr > 15)).sum()),
+        tier_a_toi=int(((d.tier == "A") & d.toi_match.astype(bool)).sum()),
+        candidates_planet_sized_snr_gt_10=int((d.candidate & d.planet_sized & (d.snr > 10)).sum()),
+        candidates_planet_sized_snr_gt_15=int((d.candidate & d.planet_sized & (d.snr > 15)).sum()),
+        candidate_duration_counts={f"{k:g}": int(v) for k, v in
+                                   d[d.candidate].duration_h.value_counts().sort_index().items()},
+        crowded_time_bins_days=float(cm["flagged"].sum() * CM_BIN_D),
+        common_mode_in_crowded_bins=int((d.common_mode & d.crowded_time_bin).sum()),
         candidate_stars=int(d[d.candidate].tic.nunique()),
-        common_mode_bins=int(cm["flagged"].sum()),
+        crowded_time_bins=int(cm["flagged"].sum()),
         common_mode_rate_per_bin=cm["lam"],
         tois_in_sample=int(tois_in_sample.tid.nunique()),
         toi_matched_dips=int((d.toi_match != "").sum()),
         toi_matched_candidates=int(((d.toi_match != "") & d.candidate).sum()),
+        data_windows=[list(map(float, w)) for w in windows],
+        toi_recall=dict(
+            tois_with_predicted_transit=len(rec),
+            recovered=int(rec.recovered.sum()) if len(rec) else 0,
+            by_depth=(rec.assign(bin=pd.cut(rec.depth_ppm, [0, 1000, 3000, 10000, 1e6]).astype(str))
+                      .groupby("bin").recovered.agg(["size", "mean"]).reset_index()
+                      .to_dict("records")) if len(rec) else [],
+            categories=rec[rec.recovered].category.value_counts().to_dict() if len(rec) else {},
+            single_transit_tois=rec[rec.n_pred == 1][["toi", "period_d", "depth_ppm", "recovered",
+                                                      "category", "snr"]].to_dict("records")
+            if len(rec) else []),
         toi2180=d[d.tic == 298663873][["rank", "t0", "depth_ppm", "duration_h", "snr",
-                                        "category"]].to_dict("records"),
+                                        "category", "n_coincident", "n_coincident_expected",
+                                        "edge_dist_h"]].to_dict("records"),
     )
     if len(inj):
         base = inj[(inj.long_limited == 0) & (inj.hf_variable == 0)]
@@ -435,11 +446,14 @@ def main():
                       for name, g in [("full_window", base),
                                       ("long_limited", inj[inj.long_limited == 1]),
                                       ("hf_variable", inj[inj.hf_variable == 1])]},
-            long_limited_by_duration=inj[inj.long_limited == 1].groupby("duration_h")
-            .recovered.agg(["size", "mean"]).reset_index().to_dict("records"),
+            long_limited_snr_gt_15=inj[(inj.long_limited == 1) & (inj.expected_snr > 15)]
+            .assign(searched=lambda x: x.duration_h <= x.max_dur_h + 1e-9)
+            .groupby("searched").recovered.agg(["size", "mean"]).reset_index()
+            .to_dict("records"),
+            long_limited_stars=int(inj[inj.long_limited == 1].tic.nunique()),
+            hf_variable_stars=int(inj[inj.hf_variable == 1].tic.nunique()),
             full_window_by_duration_snr_gt_15=base[base.expected_snr > 15].groupby("duration_h")
             .recovered.agg(["size", "mean"]).reset_index().to_dict("records"),
-            false_detections_elsewhere=None,
         )
     with open(os.path.join(out, f"{tag}_summary.json"), "w") as fh:
         json.dump(summ, fh, indent=1, default=float)
@@ -450,6 +464,7 @@ def main():
         tmp = os.path.join(work, "tmp")
         plot_top(d, args.sector, os.path.join(plots, "top100"), tmp, n=args.top)
         contact_sheet(d, args.sector, os.path.join(plots, "top_candidates_sheet.png"), tmp)
+        plot_validation(d, args.sector, plots, tmp)
 
 
 if __name__ == "__main__":

@@ -80,3 +80,36 @@ def test_store_is_atomic_and_resumable(tmp_path):
 
 def _tf(lc):
     return lc.time, lc.flux
+
+
+def _dips(rows):
+    import pandas as pd
+    cols = ["tic", "t0", "duration_h", "depth_ppm", "snr", "partial", "common_mode"]
+    return pd.DataFrame(rows, columns=cols)
+
+
+def test_classify_single_repeating_secondary():
+    from tesshunt.vetting import classify
+    d = _dips([
+        (1, 2612.0, 4, 5000, 30, False, False),    # EB: two similar eclipses
+        (1, 2620.0, 4, 5200, 28, False, False),
+        (2, 2615.0, 24, 2000, 27, True, False),    # TOI-2180-like partial + unrelated ramp
+        (2, 2626.0, 6, 1300, 10, False, False),
+        (3, 2630.0, 8, 900, 12, False, False),     # clean single
+        (4, 2611.0, 2, 3000, 9, False, True),      # systematic
+    ])
+    assert list(classify(d)) == ["repeating", "repeating", "single_partial", "secondary",
+                                 "single", "common_mode"]
+
+
+def test_local_common_mode_flags_coincident_cluster():
+    import pandas as pd
+    from tesshunt.vetting import local_common_mode
+    rng = np.random.default_rng(0)
+    n = 400
+    d = pd.DataFrame(dict(tic=np.arange(n), t0=rng.uniform(2610, 2636, n),
+                          ra=rng.uniform(100, 101, n), dec=rng.uniform(0, 1, n)))
+    d.loc[:29, "t0"] = 2620.0 + rng.normal(0, 0.05, 30)    # 30 stars dip together
+    flag, n_co, lam = local_common_mode(d)
+    assert flag[:30].mean() > 0.9
+    assert flag[30:].mean() < 0.05

@@ -159,11 +159,12 @@ def test_catalogue_check():
         exofop_toi=pd.DataFrame({"TIC ID": [1, 2], "TOI": [100.01, 200.01],
                                  "TFOPWG Disposition": ["PC", "FP"]}),
         exofop_ctoi=pd.DataFrame({"TIC ID": [3], "CTOI": ["3.01"]}),
-        tess_ebs=pd.DataFrame({"tess_id": [4]}))
+        tess_ebs=pd.DataFrame({"tess_id": [4]}), villanova_ebs={6})
     assert v.catalogue_check(1, cats)["passed"] and v.catalogue_check(1, cats)["known"]
     assert not v.catalogue_check(2, cats)["passed"]                    # TOI marked FP
     assert v.catalogue_check(3, cats)["known"]
     assert not v.catalogue_check(4, cats)["passed"]                    # known EB
+    assert not v.catalogue_check(6, cats)["passed"]                    # Villanova-only EB
     r = v.catalogue_check(5, cats)
     assert r["passed"] and not r["known"]
 

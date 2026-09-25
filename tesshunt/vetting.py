@@ -270,30 +270,42 @@ class ModelFit:
         return self.chi2 + self.k * np.log(n)
 
 
-def fit_transit(t, f, sigma, t0, dur, exp_time=None):
+def fit_transit(t, f, sigma, t0, dur, exp_time=None, box=None):
+    """Least-squares limb-darkened transit fit (t0, rp, T14, b, linear baseline).
+
+    Multi-start over T14 and impact parameter; if ``box`` (a fitted box
+    ModelFit) is given, its centre, duration and depth seed extra starts and
+    widen the bounds, so a dip that is longer or offset from the detection box
+    is not missed by a local minimum."""
     from scipy.optimize import least_squares
     x = t - t0
     depth0 = max(1 - np.median(f[np.abs(x) < dur / 4]) if np.any(np.abs(x) < dur / 4) else 1e-3,
                  1e-4)
-    best = None
-    t0_span = max(dur / 2, 1 / 24)
-    lo = [t0 - t0_span, 0.003, 0.25 / 24, 0.0, 0.9, -1.0]
-    hi = [t0 + t0_span, 0.9, max(3 * dur, dur + 4 / 24), 0.99, 1.1, 1.0]
+    centres, durs = [t0], [dur]
+    if box is not None:
+        centres.append(box.params["t0"])
+        durs.append(box.params["dur_h"] / 24)
+        depth0 = max(depth0, box.params["depth_ppm"] * 1e-6)
+    span = max(max(durs), 1 / 24)
+    lo = [min(centres) - span, 0.003, 0.25 / 24, 0.0, 0.9, -1.0]
+    hi = [max(centres) + span, 0.9, max(3 * max(durs), max(durs) + 4 / 24), 0.99, 1.1, 1.0]
 
     def resid(p):
         m = transit_model(t, p[0], p[1], p[2], p[3] * (1 + p[1]), exp_time=exp_time)
         return (f - m * (p[4] + p[5] * x)) / sigma
 
-    for tf in (0.8, 1.0, 1.4):
-        for beta in (0.1, 0.6, 0.9):
-            rp0 = np.clip(np.sqrt(depth0) * (1.2 if beta > 0.8 else 1.0), 0.004, 0.85)
-            p0 = np.clip([t0, rp0, dur * tf, beta, 1.0, 0.0], lo, hi)
-            try:
-                r = least_squares(resid, p0, bounds=(lo, hi), x_scale="jac", max_nfev=400)
-            except Exception:  # noqa: BLE001
-                continue
-            if best is None or r.cost < best.cost:
-                best = r
+    best = None
+    for c, d in zip(centres, durs):
+        for tf in (0.8, 1.0, 1.3):
+            for beta in (0.1, 0.6, 0.9):
+                rp0 = np.clip(np.sqrt(depth0) * (1.2 if beta > 0.8 else 1.0), 0.004, 0.85)
+                p0 = np.clip([c, rp0, d * tf, beta, 1.0, 0.0], lo, hi)
+                try:
+                    r = least_squares(resid, p0, bounds=(lo, hi), x_scale="jac", max_nfev=400)
+                except Exception:  # noqa: BLE001
+                    continue
+                if best is None or r.cost < best.cost:
+                    best = r
     p = best.x
     b = p[3] * (1 + p[1])
     model = transit_model(t, p[0], p[1], p[2], b, exp_time=exp_time) * (p[4] + p[5] * x)
@@ -391,6 +403,12 @@ def fit_flare_decay(t, f, sigma, t0):
                     coef[0] + coef[1] * x + coef[2] * e)
 
 
+def shape_passes(dbic_alt, dbic_box, dbic_box_min=None):
+    """Shape decision from the stored BIC differences (see shape_test)."""
+    dbic_box_min = SHAPE_DBIC_BOX if dbic_box_min is None else dbic_box_min
+    return bool(dbic_alt >= SHAPE_DBIC_ALT and dbic_box >= dbic_box_min)
+
+
 def shape_window(time, flux, t0, dur):
     """Data used for the shape fits: +/- max(2.5 durations, 0.5 d) around t0."""
     half = max(2.5 * dur, 0.5)
@@ -410,14 +428,15 @@ def shape_test(t, f, t0, dur, exp_time=None):
     """
     sigma = _robust_sigma_pt(f)
     n = len(t)
+    box = fit_box(t, f, sigma, t0, dur)
     fits = {m.name: m for m in (
-        fit_transit(t, f, sigma, t0, dur, exp_time), fit_box(t, f, sigma, t0, dur),
+        fit_transit(t, f, sigma, t0, dur, exp_time, box=box), box,
         fit_ramp(t, f, sigma, t0), fit_step(t, f, sigma, t0),
         fit_flare_decay(t, f, sigma, t0))}
     bic = {k: m.bic(n) for k, m in fits.items()}
     d_alt = min(bic[k] for k in ("ramp", "step", "flare_decay")) - bic["transit"]
     d_box = bic["box"] - bic["transit"]
-    ok = (d_alt >= SHAPE_DBIC_ALT) and (d_box >= SHAPE_DBIC_BOX)
+    ok = shape_passes(d_alt, d_box)
     return dict(passed=bool(ok), dbic_alt=float(d_alt), dbic_box=float(d_box),
                 bic={k: float(v) for k, v in bic.items()}, sigma_ppm=sigma * 1e6, n=n,
                 best_alt=min(("ramp", "step", "flare_decay"), key=lambda k: bic[k]),
@@ -732,11 +751,13 @@ EXOFOP_TOI = "https://exofop.ipac.caltech.edu/tess/download_toi.php?sort=toi&out
 EXOFOP_CTOI = "https://exofop.ipac.caltech.edu/tess/download_ctoi.php?sort=ctoi&output=csv"
 TESS_EBS = ("https://archive.stsci.edu/hlsps/tess-ebs/"
             "hlsp_tess-ebs_tess_lcf-ffi_s0001-s0026_tess_v1.0_cat.csv")
+VILLANOVA_EBS = "https://tessebs.villanova.edu/?order_by=tic&page={page}"
 
 
 def load_catalogues(cache_dir):
-    """ExoFOP TOIs and CTOIs and the TESS EB catalogue (Prsa et al. 2022),
-    downloaded once into ``cache_dir``."""
+    """ExoFOP TOIs and CTOIs and the TESS EB catalogue (Prsa et al. 2022; the
+    MAST HLSP table and the Villanova web catalogue, merged), downloaded once
+    into ``cache_dir``."""
     os.makedirs(cache_dir, exist_ok=True)
     out = {}
     for name, url in (("exofop_toi", EXOFOP_TOI), ("exofop_ctoi", EXOFOP_CTOI),
@@ -746,7 +767,32 @@ def load_catalogues(cache_dir):
             with urllib.request.urlopen(url, timeout=300) as r, open(path, "wb") as fh:
                 fh.write(r.read())
         out[name] = pd.read_csv(path, low_memory=False)
+    vpath = os.path.join(cache_dir, "villanova_tics.txt")
+    if not os.path.exists(vpath):
+        try:
+            _fetch_villanova(vpath)
+        except Exception:  # noqa: BLE001
+            pass
+    out["villanova_ebs"] = (set(int(x) for x in open(vpath) if x.strip())
+                            if os.path.exists(vpath) else set())
     return out
+
+
+def _fetch_villanova(path, max_pages=200):
+    """TIC IDs listed in the Villanova TESS EB catalogue web pages."""
+    import re
+    import time
+    tics = set()
+    for page in range(1, max_pages + 1):
+        with urllib.request.urlopen(VILLANOVA_EBS.format(page=page), timeout=60) as r:
+            html = r.read().decode()
+        found = set(re.findall(r'href="(\d{10})"', html))
+        tics |= found
+        if not found or f"page={page + 1}" not in html:
+            break
+        time.sleep(0.5)
+    with open(path, "w") as fh:
+        fh.write("\n".join(str(int(t)) for t in sorted(tics)))
 
 
 def catalogue_check(tic, cats):
@@ -757,7 +803,7 @@ def catalogue_check(tic, cats):
     ebs = cats["tess_ebs"]
     t = toi[toi["TIC ID"] == tic]
     c = ctoi[ctoi["TIC ID"] == tic]
-    eb = bool((ebs["tess_id"] == tic).any())
+    eb = bool((ebs["tess_id"] == tic).any()) or tic in cats.get("villanova_ebs", set())
     disp = [str(x) for x in t["TFOPWG Disposition"].fillna("")]
     fp = any(d in ("FP", "FA") for d in disp)
     return dict(passed=not (eb or fp), eb=eb, toi_fp=fp,
@@ -775,7 +821,7 @@ TIC_BG_FIELD = 0.1         # deg^2 of TIC stars used as the background populatio
 def tic_background_file(ra, dec, path, field=TIC_BG_FIELD):
     """Background-star population for TRICERATOPS from the TIC (itself built
     on Gaia DR2), in the CSV format of triceratops.funcs.query_gaia_background.
-    Used because the Gaia archive and TRILEGAL are not reachable here."""
+    Fallback for when the Gaia archive cannot be queried."""
     from astropy.coordinates import SkyCoord
     import astropy.units as u
     from astroquery.mast import Catalogs
@@ -808,6 +854,35 @@ class _CoordCatalogs:
         return self._c.query_region(*a, **k)
 
 
+GAIA_TAP_SYNC = "https://gea.esac.esa.int/tap-server/tap/sync"
+
+
+class _GaiaHTTPS:
+    """Minimal stand-in for astroquery.gaia.Gaia used by
+    triceratops.funcs.query_gaia_background: runs the ADQL on the HTTPS
+    synchronous TAP endpoint (astroquery's client also makes plain-HTTP
+    requests, which the egress proxy here refuses)."""
+    ROW_LIMIT = -1
+
+    class _Job:
+        def __init__(self, table):
+            self._t = table
+
+        def get_results(self):
+            return self._t
+
+    @classmethod
+    def launch_job(cls, adql, verbose=False):
+        from astropy.io import ascii as asc
+        data = urllib.parse.urlencode({"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
+                                       "QUERY": adql}).encode()
+        with urllib.request.urlopen(GAIA_TAP_SYNC, data=data, timeout=300) as r:
+            text = r.read().decode()
+        return cls._Job(asc.read(text, format="csv", fill_values=[("", "nan")]))
+
+    launch_job_async = launch_job
+
+
 class _TesscutSearch:
     """Stand-in for lightkurve.search_tesscut(...) inside triceratops, which
     would route coordinates through the (unreachable) MAST name resolver."""
@@ -825,15 +900,20 @@ class _TesscutSearch:
 
 def triceratops_fpp(tic, ra, dec, sector, time_from_t0, flux, flux_err, depth, ap_abs,
                     period_range, workdir, n_draws=200_000, seed=0):
-    """Run TRICERATOPS; returns dict(fpp, nfpp, scenario probabilities)."""
+    """Run TRICERATOPS; returns dict(fpp, nfpp, scenario probabilities).
+
+    The background-star population comes from Gaia DR3 (TRICERATOPS default);
+    if that query fails, a TIC-based population (tic_background_file) is used
+    instead, and ``background`` in the result says which."""
     import contextlib
     import io
     import warnings
+    import astroquery.gaia
     import triceratops.triceratops as trm
     os.makedirs(workdir, exist_ok=True)
-    bg, n_bg = tic_background_file(ra, dec, os.path.join(workdir, f"{tic}_tic_background.csv"))
     np.random.seed(seed)
-    old = trm.Catalogs, trm.lightkurve.search_tesscut
+    old = trm.Catalogs, trm.lightkurve.search_tesscut, astroquery.gaia.Gaia
+    astroquery.gaia.Gaia = _GaiaHTTPS
     trm.Catalogs = _CoordCatalogs(ra, dec)
     trm.lightkurve.search_tesscut = lambda target, sector=None, **k: _TesscutSearch(target, sector)
     cwd = os.getcwd()
@@ -841,7 +921,13 @@ def triceratops_fpp(tic, ra, dec, sector, time_from_t0, flux, flux_err, depth, a
     try:
         with warnings.catch_warnings(), contextlib.redirect_stdout(io.StringIO()):
             warnings.simplefilter("ignore")
-            tg = trm.target(ID=tic, sectors=np.array([sector]), trilegal_fname=bg)
+            tg = trm.target(ID=tic, sectors=np.array([sector]))
+            background = "gaia_dr3"
+            if tg.trilegal_fname is None:
+                path, _ = tic_background_file(ra, dec, f"{tic}_tic_background.csv")
+                tg.trilegal_fname = path
+                background = "tic"
+            n_bg = sum(1 for _ in open(tg.trilegal_fname)) - 1
             if not tg.pix_coords:
                 raise RuntimeError("triceratops could not get a TESScut image")
             tg.calc_depths(tdepth=depth, all_ap_pixels=[np.asarray(ap_abs)])
@@ -849,10 +935,11 @@ def triceratops_fpp(tic, ra, dec, sector, time_from_t0, flux, flux_err, depth, a
                           P_orb=list(period_range), N=n_draws, parallel=False, verbose=0,
                           exptime=10 / 1440)
         probs = tg.probs[["scenario", "prob"]].groupby("scenario").prob.sum().to_dict()
-        return dict(fpp=float(tg.FPP), nfpp=float(tg.NFPP), n_background=n_bg,
-                    n_stars=int(len(tg.stars)), probs={k: float(v) for k, v in probs.items()})
+        return dict(fpp=float(tg.FPP), nfpp=float(tg.NFPP), background=background,
+                    n_background=n_bg, n_stars=int(len(tg.stars)),
+                    probs={k: float(v) for k, v in probs.items()})
     finally:
-        trm.Catalogs, trm.lightkurve.search_tesscut = old
+        trm.Catalogs, trm.lightkurve.search_tesscut, astroquery.gaia.Gaia = old
         os.chdir(cwd)
 
 

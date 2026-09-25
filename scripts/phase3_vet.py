@@ -159,7 +159,8 @@ def passed_lc(k):
     r = load_json(p)
     if r["status"] != "ok":
         return None
-    return r["shape"]["passed"] and r["duration"]["passed"] and r["edge"]["passed"]
+    shape = v.shape_passes(r["shape"]["dbic_alt"], r["shape"]["dbic_box"])
+    return shape and r["duration"]["passed"] and r["edge"]["passed"]
 
 
 # ---------------------------------------------------------------- stage: pixels

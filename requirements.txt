@@ -4,3 +4,6 @@ astropy>=5.3
 lightkurve>=2.4
 matplotlib>=3.7
 pytest>=7
+setuptools<81  # triceratops -> pytransit still imports pkg_resources
+batman-package>=2.4
+triceratops>=1.1

@@ -1,0 +1,329 @@
+"""Phase 3: vet the Phase 2 single-dip candidates.
+
+    python scripts/phase3_vet.py lc        # checks 1-3 on every candidate (+ validation TOIs)
+    python scripts/phase3_vet.py pixels    # checks 4-6 on survivors of 1-3 (+ validation)
+    python scripts/phase3_vet.py fpp       # check 7 (TRICERATOPS) on survivors of 1-6 (+ validation)
+    python scripts/phase3_vet.py report    # funnel, shortlist, vetting sheets, summary
+
+Each stage is resumable: per-candidate results are cached as JSON/NPZ in
+work/phase3/ (git-ignored) and skipped on rerun. Light curves and pixel
+cutouts are fetched, reduced, and discarded; only derived arrays are cached.
+
+Checks (tesshunt/vetting.py): 1 shape, 2 duration, 3 edge, 4 pixels
+(centroid + neighbours), 5 asteroids, 6 catalogues, 7 FPP.
+The validation set is TOI-2180 b plus every TOI with a single predicted
+transit in the sector that Phase 2 recovered; it goes through every check
+regardless of earlier results, to measure how often each check would reject
+a real planet.
+"""
+
+import argparse
+import json
+import os
+import sys
+import time
+import traceback
+from multiprocessing import Pool
+from multiprocessing.pool import ThreadPool
+
+import numpy as np
+import pandas as pd
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+
+from tesshunt import ffi, vetting as v  # noqa: E402
+from tesshunt.survey import analyse  # noqa: E402
+
+SECTOR = 48
+TAG = f"s{SECTOR:04d}"
+WORK = os.path.join(ROOT, "work", "phase3")
+P2 = os.path.join(ROOT, "results", "phase2")
+OUT = os.path.join(ROOT, "results", "phase3")
+PLOTS = os.path.join(ROOT, "plots", "phase3")
+CHECKS = ["shape", "duration", "edge", "pixels", "asteroid", "catalogue", "fpp"]
+
+
+def key(tic, t0):
+    return f"{int(tic)}_{t0:.4f}"
+
+
+def jpath(stage, k, ext="json"):
+    d = os.path.join(WORK, stage)
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, f"{k}.{ext}")
+
+
+def save_json(path, obj):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(obj, fh, default=_jsonable)
+    os.replace(tmp, path)
+
+
+def _jsonable(o):
+    if isinstance(o, (np.integer,)):
+        return int(o)
+    if isinstance(o, (np.floating,)):
+        return float(o)
+    if isinstance(o, (np.bool_,)):
+        return bool(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    raise TypeError(type(o))
+
+
+def load_json(path):
+    with open(path) as fh:
+        return json.load(fh)
+
+
+# ---------------------------------------------------------------- targets
+
+def targets():
+    """Candidates (tier A first, then B) plus the validation TOIs."""
+    cand = pd.read_csv(os.path.join(P2, f"{TAG}_candidates.csv"))
+    dips = pd.read_csv(os.path.join(P2, f"{TAG}_dips.csv"))
+    rec = pd.read_csv(os.path.join(P2, f"{TAG}_toi_recall.csv"))
+    rec = rec[(rec.n_pred == 1) & rec.recovered]
+    val = []
+    for _, r in rec.iterrows():
+        g = dips[(dips.tic == r.tic) & (dips.toi_match.astype(str) == f"{r.toi:.2f}")]
+        if len(g):
+            val.append(g.sort_values("snr").iloc[-1])
+    val = pd.DataFrame(val)
+    cand["is_candidate"] = True
+    val["is_validation"] = True
+    both = pd.concat([cand, val]).drop_duplicates(["tic", "t0"], keep="first")
+    both = both.merge(val[["tic", "t0", "is_validation"]], on=["tic", "t0"], how="left",
+                      suffixes=("_x", ""))
+    both = both.drop(columns=[c for c in both.columns if c.endswith("_x")])
+    both["is_candidate"] = both.is_candidate.fillna(False).astype(bool)
+    both["is_validation"] = both.is_validation.fillna(False).astype(bool)
+    sample = pd.read_csv(os.path.join(ROOT, "work", f"{TAG}_sample.csv"),
+                         usecols=["ID", "ra", "dec", "mass", "rad", "Tmag"])
+    both = both.drop(columns=[c for c in ("ra", "dec") if c in both.columns])
+    both = both.merge(sample.rename(columns={"ID": "tic"}), on="tic", how="left")
+    both["key"] = [key(a, b) for a, b in zip(both.tic, both.t0)]
+    order = {"A": 0, "B": 1}
+    both["order"] = [order.get(t, 2) for t in both.tier.fillna("")]
+    return both.sort_values(["order", "rank"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------- stage: lc
+
+def lc_job(row):
+    k = row["key"]
+    out = jpath("lc", k)
+    if os.path.exists(out):
+        return k, "cached"
+    tmp = os.path.join(WORK, "tmp")
+    os.makedirs(tmp, exist_ok=True)
+    path = os.path.join(tmp, f"{k}.fits")
+    try:
+        try:
+            ffi.download(int(row["tic"]), SECTOR, path)
+            lc, _ = ffi.read(path)
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+        var, cfg, ss = analyse(lc)
+        t, f = ss.time, ss.flat
+        cad = float(np.median(np.diff(t)))
+        dur = row["duration_h"] / 24
+        tw, fw = v.shape_window(t, f, row["t0"], dur)
+        sh = v.shape_test(tw, fw, row["t0"], dur, exp_time=cad)
+        tr = sh["transit"]
+        du = v.duration_check(tr["t14_h"], tr["b"], tr["rp"], row["rad"], row["mass"],
+                              tr["grazing"])
+        ed = v.edge_check(t, f, tr["t0"], tr["t14_h"], tr["depth_ppm"] * 1e-6)
+        np.savez_compressed(jpath("lc", k, "npz"), t=t.astype("f8"), f=f.astype("f4"),
+                            tw=tw, fw=fw,
+                            **{f"m_{n}": m.model.astype("f4") for n, m in sh["fits"].items()})
+        sh = {kk: vv for kk, vv in sh.items() if kk != "fits"}
+        save_json(out, dict(key=k, tic=int(row["tic"]), t0_det=row["t0"], shape=sh,
+                            duration=du, edge=ed, cadence=cad, t_first=float(t[0]),
+                            t_last=float(t[-1]), window_d=var.window, status="ok"))
+        return k, "ok"
+    except Exception as e:  # noqa: BLE001
+        save_json(out, dict(key=k, tic=int(row["tic"]), status="error",
+                            error=f"{type(e).__name__}: {e}", tb=traceback.format_exc()))
+        return k, "error"
+
+
+def passed_lc(k):
+    p = jpath("lc", k)
+    if not os.path.exists(p):
+        return None
+    r = load_json(p)
+    if r["status"] != "ok":
+        return None
+    return r["shape"]["passed"] and r["duration"]["passed"] and r["edge"]["passed"]
+
+
+# ---------------------------------------------------------------- stage: pixels
+
+_CATS = None
+
+
+def pixel_job(row):
+    global _CATS
+    k = row["key"]
+    out = jpath("pix", k)
+    if os.path.exists(out):
+        return k, "cached"
+    try:
+        lcr = load_json(jpath("lc", k))
+        tr = lcr["shape"]["transit"]
+        t0, t14 = tr["t0"], tr["t14_h"] / 24
+        depth = max(tr["depth_ppm"], 1.0) * 1e-6
+        cut = v.tesscut_cutout(row["ra"], row["dec"], SECTOR)
+        di = v.difference_image(cut["time"], cut["cube"], t0, t14)
+        if di is None:
+            raise RuntimeError("not enough cadences for a difference image")
+        diff, noise, oot, n_in, n_oot = di
+        nbs = v.tic_neighbours(row["ra"], row["dec"], cut["wcs"], row["Tmag"])
+        ct = v.centroid_test(diff, noise, cut["x"], cut["y"])
+        nt = v.neighbour_test(diff, noise, oot, cut["x"], cut["y"], nbs, depth)
+        ap = v.aperture_mask(oot, cut["x"], cut["y"])
+        # aperture light curve around the dip, normalized by a linear OOT baseline
+        sel = np.abs(cut["time"] - t0) < max(2.5 * t14, 0.5)
+        tl = cut["time"][sel]
+        fl = cut["cube"][sel][:, ap].sum(axis=1)
+        oo = np.abs(tl - t0) > t14 / 2 + 1 / 24
+        c = np.polyfit(tl[oo] - t0, fl[oo], 1) if oo.sum() > 3 else [0, np.median(fl)]
+        fl = fl / np.polyval(c, tl - t0)
+        inn = np.abs(tl - t0) < 0.4 * t14
+        ap_depth = float(1 - fl[inn].mean()) if inn.any() else np.nan
+        ap_snr = float(ap_depth / (v._robust_sigma_pt(fl[oo]) / np.sqrt(max(inn.sum(), 1))))
+        pix = dict(passed=bool(ct["passed"] and nt["passed"]), centroid=ct, neighbours=nt,
+                   n_in=n_in, n_oot=n_oot, ap_depth_ppm=ap_depth * 1e6, ap_snr=ap_snr,
+                   n_ap=int(ap.sum()))
+        ap_abs = [[cut["col0"] + int(ix), cut["row0"] + int(iy)]
+                  for iy, ix in zip(*np.nonzero(ap))]
+        np.savez_compressed(jpath("pix", k, "npz"), diff=diff, noise=noise, oot=oot, ap=ap,
+                            x=cut["x"], y=cut["y"], tl=tl, fl=fl,
+                            nbs=np.array([n for n in nbs], float).reshape(-1, 4))
+        # 5: asteroids
+        try:
+            objs = v.skybot_query(row["ra"], row["dec"], t0 + 2457000.0)
+            ast = v.asteroid_check(objs, row["ra"], row["dec"], t14 * 24)
+        except Exception as e:  # noqa: BLE001
+            ast = dict(passed=True, error=f"{type(e).__name__}: {e}", hits=[], n_objects=None)
+        # 6: catalogues
+        if _CATS is None:
+            _CATS = v.load_catalogues(WORK)
+        cat = v.catalogue_check(int(row["tic"]), _CATS)
+        save_json(out, dict(key=k, status="ok", pixels=pix, asteroid=ast, catalogue=cat,
+                            ap_abs=ap_abs))
+        return k, "ok"
+    except Exception as e:  # noqa: BLE001
+        save_json(out, dict(key=k, status="error", error=f"{type(e).__name__}: {e}",
+                            tb=traceback.format_exc()))
+        return k, "error"
+
+
+def passed_pix(k):
+    p = jpath("pix", k)
+    if not os.path.exists(p):
+        return None
+    r = load_json(p)
+    if r["status"] != "ok":
+        return None
+    return r["pixels"]["passed"] and r["asteroid"]["passed"] and r["catalogue"]["passed"]
+
+
+# ---------------------------------------------------------------- stage: fpp
+
+def fpp_job(row):
+    k = row["key"]
+    out = jpath("fpp", k)
+    if os.path.exists(out):
+        return k, "cached"
+    try:
+        lcr = load_json(jpath("lc", k))
+        pix = load_json(jpath("pix", k))
+        tr = lcr["shape"]["transit"]
+        t0 = tr["t0"]
+        d = np.load(jpath("lc", k, "npz"))
+        tw, fw = d["tw"], d["fw"].astype(float)
+        err = v._robust_sigma_pt(fw)
+        # Single transit: no second transit inside the data bounds the period
+        # from below; the duration (b = 0, circular) bounds it from above.
+        p_lo = max(t0 - lcr["t_first"], lcr["t_last"] - t0)
+        p_b0 = lcr["duration"].get("p_b0_d", np.nan)
+        p_hi = max(p_b0 if np.isfinite(p_b0) else 3 * p_lo, 1.5 * p_lo)
+        res = v.triceratops_fpp(int(row["tic"]), row["ra"], row["dec"], SECTOR, tw - t0, fw,
+                                err, max(tr["depth_ppm"], 1.0) * 1e-6, pix["ap_abs"],
+                                (p_lo, p_hi), os.path.join(WORK, "tri", k))
+        res["p_range"] = [p_lo, p_hi]
+        save_json(out, dict(key=k, status="ok", fpp=v.fpp_check(res)))
+        return k, "ok"
+    except Exception as e:  # noqa: BLE001
+        save_json(out, dict(key=k, status="error", error=f"{type(e).__name__}: {e}",
+                            tb=traceback.format_exc()))
+        return k, "error"
+
+
+def _init_worker():
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+
+
+def run_stage(fn, rows, procs, threads=False, label=""):
+    jobs = [r for r in rows]
+    if not jobs:
+        print(f"{label}: nothing to do")
+        return
+    t_start, n, counts = time.time(), 0, {}
+    pool = ThreadPool(procs) if threads else Pool(procs, initializer=_init_worker)
+    with pool:
+        for k, status in pool.imap_unordered(fn, jobs):
+            n += 1
+            counts[status] = counts.get(status, 0) + 1
+            if n % 50 == 0 or n == len(jobs):
+                rate = n / (time.time() - t_start)
+                print(f"[{time.strftime('%H:%M:%S')}] {label} {n}/{len(jobs)} {counts} "
+                      f"{rate:.2f}/s", flush=True)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("stage", choices=["lc", "pixels", "fpp", "report"])
+    ap.add_argument("--procs", type=int, default=8)
+    ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--retry-errors", action="store_true")
+    args = ap.parse_args()
+    tg = targets()
+    rows = tg.to_dict("records")
+    if args.stage == "report":
+        from phase3_report import report
+        report(tg)
+        return
+    stage = {"lc": "lc", "pixels": "pix", "fpp": "fpp"}[args.stage]
+    if args.retry_errors:
+        for r in rows:
+            p = jpath(stage, r["key"])
+            if os.path.exists(p) and load_json(p)["status"] == "error":
+                os.remove(p)
+    if args.stage == "lc":
+        todo = rows
+        fn, threads = lc_job, False
+    elif args.stage == "pixels":
+        todo = [r for r in rows if passed_lc(r["key"]) or
+                (r["is_validation"] and passed_lc(r["key"]) is not None)]
+        fn, threads = pixel_job, True
+    else:
+        todo = [r for r in rows if (passed_lc(r["key"]) and passed_pix(r["key"])) or
+                (r["is_validation"] and passed_pix(r["key"]) is not None)]
+        fn, threads = fpp_job, False
+    todo = [r for r in todo if not os.path.exists(jpath(stage, r["key"]))]
+    if args.limit:
+        todo = todo[:args.limit]
+    print(f"{args.stage}: {len(tg)} targets ({int(tg.is_candidate.sum())} candidates, "
+          f"{int(tg.is_validation.sum())} validation), {len(todo)} to process")
+    run_stage(fn, todo, args.procs, threads, args.stage)
+
+
+if __name__ == "__main__":
+    main()

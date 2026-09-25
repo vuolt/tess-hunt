@@ -26,7 +26,7 @@ def binned(t: np.ndarray, f: np.ndarray, width: float):
 
 def event_figure(ss: SectorSearch, ev: Event, title: str, path: str,
                  threshold: float, known_t0: list[float] | None = None,
-                 known_label: str = "published T0") -> None:
+                 known_label: str = "published T0", dpi: int = 130) -> None:
     """Four-panel diagnostic for one detected single-transit event."""
     lc, res = ss.lc, ss.search
     fig = plt.figure(figsize=(12, 10))
@@ -89,7 +89,7 @@ def event_figure(ss: SectorSearch, ev: Event, title: str, path: str,
             transform=ax.transAxes, va="top", fontsize=9, family="monospace")
 
     fig.tight_layout()
-    fig.savefig(path, dpi=130)
+    fig.savefig(path, dpi=dpi)
     plt.close(fig)
 
 

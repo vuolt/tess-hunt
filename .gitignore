@@ -220,3 +220,4 @@ __marimo__/
 # tess-hunt: raw light-curve downloads (never commit)
 data/
 *.fits
+work/

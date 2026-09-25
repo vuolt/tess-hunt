@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# tess-hunt: raw light-curve downloads (never commit)
+data/
+*.fits

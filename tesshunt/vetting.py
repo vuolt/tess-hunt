@@ -207,7 +207,9 @@ def vet(stars, dips, tois, coords):
 LD_U = (0.40, 0.25)        # quadratic limb darkening, TESS band, ~solar (fixed)
 SHAPE_P_REF = 100.0        # d; transit shape at fixed T14 is insensitive to P
 SHAPE_DBIC_ALT = 10.0      # transit must beat ramp/step/flare-decay by this much
-SHAPE_DBIC_BOX = -6.0      # ...and a box must not be preferred by more than this
+SHAPE_DBIC_BOX = -np.inf   # optional: box must not be preferred by more than this.
+                           # Disabled: at 10-min cadence it rejected validation TOIs
+                           # (2/28) as often as candidates (24/474); see RESULTS.md.
 DUR_P_MIN = 20.0           # d; the orbit we want to remain possible
 DUR_FRAC = 0.5             # allow T14 down to this fraction of the central duration
 GRAZE_B = 0.9              # impact parameter above which the fit counts as grazing
@@ -419,12 +421,12 @@ def shape_window(time, flux, t0, dur):
 def shape_test(t, f, t0, dur, exp_time=None):
     """Fit transit, box, ramp, step and flare-decay; compare by BIC.
 
-    Pass if the transit model has the lowest BIC among transit/ramp/step/
-    flare-decay by at least SHAPE_DBIC_ALT, and a box is not preferred over
-    the transit by more than |SHAPE_DBIC_BOX|. (At low SNR a limb-darkened
-    transit and a box are indistinguishable, so demanding a clear win over the
-    box would reject most real shallow transits; a strongly box-preferred dip
-    has unphysically sharp edges.)
+    Pass if the transit model beats every non-transit alternative (ramp,
+    step, flare-decay) by at least SHAPE_DBIC_ALT. The box is fitted and its
+    dBIC reported, but by default it does not decide: at 10-min cadence a
+    giant planet's ingress lasts ~1-2 cadences, so real transits can prefer a
+    box, and at low SNR the two are indistinguishable. Set SHAPE_DBIC_BOX
+    (or pass dbic_box_min to shape_passes) to require it.
     """
     sigma = _robust_sigma_pt(f)
     n = len(t)

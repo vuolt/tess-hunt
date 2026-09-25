@@ -46,12 +46,14 @@ def test_shape_rejects_systematics(kind):
     assert r["best_alt"] == kind or r["dbic_alt"] < v.SHAPE_DBIC_ALT
 
 
-def test_shape_rejects_sharp_box_when_resolved():
-    # A deep, instantaneous box (e.g. a data-exclusion artefact) at high SNR
+def test_shape_box_preference_is_reported_and_optional():
+    # A deep, instantaneous box at high SNR: the box is preferred, which is
+    # reported; the default rule does not reject on it, the strict option does.
     t, f, _ = window(seed=2, sigma=100e-6)
     f = f - 5e-3 * (np.abs(t - 2620.0013) < 0.1234)
     r = v.shape_test(t, f, 2620.0, 6 / 24, exp_time=CAD)
-    assert r["dbic_box"] < v.SHAPE_DBIC_BOX and not r["passed"]
+    assert r["dbic_box"] < -6 and r["passed"]
+    assert not v.shape_passes(r["dbic_alt"], r["dbic_box"], dbic_box_min=-6)
 
 
 # ---------------------------------------------------------------- 2 duration

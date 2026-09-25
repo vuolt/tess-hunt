@@ -164,10 +164,25 @@ def lc_ok(k):
         v.duration_passes(r["duration"])
 
 
-def edge_results(k):
+def pixel_dip(k):
+    """(depth, SNR, light-curve depth) of the dip in the cached TESScut
+    aperture light curve, measured against local baselines
+    (vetting.local_dip_snr); the last value is the transit-fit depth."""
+    tr = load_json(jpath("lc", k))["shape"]["transit"]
+    lc_depth = tr["depth_ppm"] * 1e-6
+    pz = jpath("pix", k, "npz")
+    if not os.path.exists(pz):
+        return np.nan, np.nan, lc_depth
+    d = np.load(pz)
+    dep, snr = v.local_dip_snr(d["tl"], d["fl"], tr["t0"], tr["t14_h"] / 24)
+    return dep, snr, lc_depth
+
+
+def edge_results(k, lc_snr=None):
     """Check 3 on the PDCSAP light curve and, if a pixel cutout exists, on the
     TESScut aperture light curve (which keeps cadences PDCSAP blanks near
-    orbit boundaries). Returns (lc_edge, pixel_edge or None)."""
+    orbit boundaries). The pixel route only counts if the dip is actually
+    confirmed in those pixels (check 4c). Returns (lc_edge, pixel_edge or None)."""
     r = load_json(jpath("lc", k))
     lc_edge = r["edge"]["passed"]
     pz = jpath("pix", k, "npz")
@@ -176,14 +191,18 @@ def edge_results(k):
     d = np.load(pz)
     tr = r["shape"]["transit"]
     pe = v.edge_check(d["tl"], d["fl"], tr["t0"], tr["t14_h"], tr["depth_ppm"] * 1e-6)
-    return lc_edge, pe["passed"]
+    ap_depth, ap_snr, lc_depth = pixel_dip(k)
+    snr = r.get("lc_snr") if lc_snr is None else lc_snr
+    confirmed = snr is not None and v.pixel_confirm_check(ap_snr, snr, ap_depth,
+                                                          lc_depth)["passed"]
+    return lc_edge, bool(pe["passed"] and confirmed)
 
 
-def passed_lc(k):
+def passed_lc(k, lc_snr=None):
     ok = lc_ok(k)
     if not ok:
         return ok
-    lc_edge, pix_edge = edge_results(k)
+    lc_edge, pix_edge = edge_results(k, lc_snr)
     return bool(lc_edge or pix_edge)
 
 
@@ -223,13 +242,12 @@ def pixel_job(row):
         oo = np.abs(tl - t0) > t14 / 2 + 1 / 24
         c = np.polyfit(tl[oo] - t0, fl[oo], 1) if oo.sum() > 3 else [0, np.median(fl)]
         fl = fl / np.polyval(c, tl - t0)
-        inn = np.abs(tl - t0) < 0.4 * t14
-        ap_depth = float(1 - fl[inn].mean()) if inn.any() else np.nan
-        ap_snr = float(ap_depth / (v._robust_sigma_pt(fl[oo]) / np.sqrt(max(inn.sum(), 1))))
+        ap_depth, ap_snr = v.local_dip_snr(tl, fl, t0, t14)
+        pix_depth_args = (ap_depth, tr["depth_ppm"] * 1e-6)
         pix = dict(centroid=ct, neighbours=nt, n_in=n_in, n_oot=n_oot,
                    ap_depth_ppm=ap_depth * 1e6, ap_snr=ap_snr, n_ap=int(ap.sum()))
-        pix["confirm"] = v.pixel_confirm_check(ap_snr, row["snr"])
-        pix["passed"] = v.pixel_passes(pix, row["snr"])
+        pix["confirm"] = v.pixel_confirm_check(ap_snr, row["snr"], *pix_depth_args)
+        pix["passed"] = v.pixel_passes(pix, row["snr"], ap_snr, *pix_depth_args)
         ap_abs = [[cut["col0"] + int(ix), cut["row0"] + int(iy)]
                   for iy, ix in zip(*np.nonzero(ap))]
         np.savez_compressed(jpath("pix", k, "npz"), diff=diff, noise=noise, oot=oot, ap=ap,
@@ -275,7 +293,9 @@ def passed_pix(k, lc_snr=None):
     r = load_json(p)
     if r["status"] != "ok" or r["asteroid"].get("passed") is None or r["asteroid"].get("error"):
         return None
-    pix = v.pixel_passes(r["pixels"], lc_snr) if lc_snr is not None else r["pixels"]["passed"]
+    ap_depth, ap_snr, lc_depth = pixel_dip(k)
+    pix = (v.pixel_passes(r["pixels"], lc_snr, ap_snr, ap_depth, lc_depth)
+           if lc_snr is not None else r["pixels"]["passed"])
     return pix and r["asteroid"]["passed"] and v.catalogue_check_passes(r["catalogue"])
 
 
@@ -361,7 +381,7 @@ def main():
                 (r["is_validation"] and lc_ok(r["key"]) is not None)]
         fn, threads = pixel_job, True
     else:
-        todo = [r for r in rows if (passed_lc(r["key"]) and passed_pix(r["key"], r["snr"])) or
+        todo = [r for r in rows if (passed_lc(r["key"], r["snr"]) and passed_pix(r["key"], r["snr"])) or
                 (r["is_validation"] and passed_pix(r["key"], r["snr"]) is not None)]
         fn, threads = fpp_job, False
     if args.stage != "pixels":

@@ -181,11 +181,28 @@ def test_catalogue_check():
         assert v.catalogue_check_passes(r) == r["passed"]
 
 
+def test_local_dip_snr_ignores_distant_spike():
+    rng = np.random.default_rng(3)
+    t = np.arange(-6, 6, CAD)
+    f = 1 + 1e-3 * rng.standard_normal(len(t))
+    f[(t > -3.2) & (t < -3.0)] += 0.03              # scattered-light spike 3 d before
+    d, s = v.local_dip_snr(t, f, 0.0, 6 / 24)       # no dip at t = 0
+    assert abs(s) < 3
+    d, s = v.local_dip_snr(t, f, -1.0, 50 / 24)     # spike inside the baseline window
+    assert abs(s) < 3
+    g = f * v.transit_model(t, 0.0, 0.07, 6 / 24, 0.3)
+    d, s = v.local_dip_snr(t, g, 0.0, 6 / 24)
+    assert s > 10 and abs(d - 4.9e-3) < 1.5e-3
+
+
 def test_pixel_confirm_check():
     assert v.pixel_confirm_check(12.0, 15.0)["passed"]
     assert not v.pixel_confirm_check(2.0, 8.0)["passed"]         # below absolute floor
     assert not v.pixel_confirm_check(5.0, 40.0)["passed"]        # < 0.3 x light-curve SNR
     assert not v.pixel_confirm_check(float("nan"), 10.0)["passed"]
+    assert v.pixel_confirm_check(12.0, 15.0, 0.008, 0.01)["passed"]
+    assert not v.pixel_confirm_check(20.0, 30.0, 0.0015, 0.01)["passed"]  # too shallow in pixels
+    assert not v.pixel_confirm_check(20.0, 15.0, 0.05, 0.01)["passed"]    # much deeper: other signal
 
 
 # ---------------------------------------------------------------- 7 FPP

@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from phase3_vet import CHECKS, OUT, PLOTS, edge_results, jpath, load_json  # noqa: E402
+from phase3_vet import CHECKS, OUT, PLOTS, edge_results, jpath, load_json, pixel_dip  # noqa: E402
 from tesshunt import vetting as v  # noqa: E402
 from tesshunt.plotting import binned  # noqa: E402
 
@@ -52,22 +52,24 @@ def collect(tg):
                      edge_lc=ed["passed"], near_edge=ed.get("near_edge"),
                      edge_resolved=ed.get("resolved"))
         if lc and lc["status"] == "ok":
-            e_lc, e_px = edge_results(k)
+            e_lc, e_px = edge_results(k, r["snr"])
             o.update(edge_pixels=e_px, edge=bool(e_lc or e_px))
         o["pix_status"] = px["status"] if px else "not run"
         if px and px["status"] == "ok":
             p, c, n = px["pixels"], px["pixels"]["centroid"], px["pixels"]["neighbours"]
-            conf = v.pixel_confirm_check(p["ap_snr"], r["snr"])
+            ap_depth, ap_snr, lc_depth = pixel_dip(k)
+            conf = v.pixel_confirm_check(ap_snr, r["snr"], ap_depth, lc_depth)
             ast = px["asteroid"]
             ast_ok = None if (ast.get("passed") is None or ast.get("error")) else ast["passed"]
             cat = px["catalogue"]
-            o.update(pixels=v.pixel_passes(p, r["snr"]), pixel_confirm=conf["passed"],
-                     pixel_snr_ratio=conf["ratio"],
+            o.update(pixels=v.pixel_passes(p, r["snr"], ap_snr, ap_depth, lc_depth),
+                     pixel_confirm=conf["passed"], pixel_snr_ratio=conf["ratio"],
+                     pixel_depth_ratio=conf["depth_ratio"],
                      centroid=c["passed"], centroid_offset_px=c["offset_px"],
                      centroid_sigma=c["offset_sigma"], diff_snr=c["diff_snr"],
                      centroid_inconclusive=c["inconclusive"], neighbours=n["passed"],
                      neighbours_failing=";".join(map(str, n["failing"])),
-                     n_unresolved=len(n["unresolved"]), ap_snr=p["ap_snr"],
+                     n_unresolved=len(n["unresolved"]), ap_snr=ap_snr,
                      asteroid=ast_ok,
                      asteroid_hits=";".join(f"{h['name']} (V={h['v']:.1f}, {h['min_sep_arcsec']:.0f}\")"
                                             for h in ast["hits"]),
@@ -245,8 +247,9 @@ def check_lines(r):
         ("4b Neighbours", _b(r.get("neighbours")),
          f"stronger on: {r.get('neighbours_failing') or 'none'}; unresolved: {r.get('n_unresolved', '-')}"),
         ("4c In pixels", _b(r.get("pixel_confirm")),
-         f"aperture dip SNR {f(r.get('ap_snr'), '.1f')} = {f(r.get('pixel_snr_ratio'), '.2f')} x LC SNR "
-         f"(need >= {v.PIXEL_CONFIRM_RATIO:g})"),
+         f"aperture SNR {f(r.get('ap_snr'), '.1f')} ({f(r.get('pixel_snr_ratio'), '.2f')}x LC, need "
+         f">= {v.PIXEL_CONFIRM_RATIO:g}); depth {f(r.get('pixel_depth_ratio'), '.2f')}x LC "
+         f"(need {v.PIXEL_DEPTH_RANGE[0]:g}-{v.PIXEL_DEPTH_RANGE[1]:g})"),
         ("5 Asteroids", _b(r.get("asteroid")), f"hits: {r.get('asteroid_hits') or 'none'}"),
         ("6 Catalogues", _b(r.get("catalogue")),
          f"TOI {r.get('tois') or '-'} CTOI {r.get('ctois') or '-'} EB {r.get('eb')}"),

@@ -559,6 +559,7 @@ NEIGHBOUR_SIGMA = 3.0
 NEIGHBOUR_RATIO = 1.5
 PIXEL_CONFIRM_RATIO = 0.3  # dip SNR in the TESScut aperture vs. light-curve SNR
 PIXEL_CONFIRM_MIN = 3.0
+PIXEL_DEPTH_RANGE = (0.4, 2.5)  # TESScut aperture depth / light-curve depth
 
 
 def tesscut_cutout(ra, dec, sector, size=15):
@@ -687,23 +688,65 @@ def neighbour_test(diff, noise, oot, x0, y0, neighbours, depth):
                 frac_target=float(ft))
 
 
-def pixel_confirm_check(ap_snr, lc_snr):
-    """Is the dip present in the raw pixels?
+def local_dip_snr(t, f, t0, t14):
+    """Depth and SNR of a dip measured against *local* baselines.
 
-    The dip's SNR in a simple TESScut aperture light curve (local linear
-    baseline, no PDC) must reach PIXEL_CONFIRM_RATIO of its SNR in the
-    PDCSAP light curve, and at least PIXEL_CONFIRM_MIN. For the Phase 2
-    validation planets the ratio is 0.6-4; dips that are absent from the
-    pixels come from the light-curve processing or systematics, not the sky."""
+    In-transit: |t - t0| < 0.4 T14. Baseline: linear fit to the windows
+    T14/2 + 1 h < |t - t0| < T14/2 + 1 h + max(T14, 3 h) on both sides (the same
+    windows as difference_image), with iterative 3-sigma clipping and a MAD
+    noise estimate, so ramps or scattered-light spikes cannot fake or hide a
+    dip. Returns (depth, snr); NaN if a side is missing."""
+    dt = t - t0
+    inn = np.abs(dt) < 0.4 * t14
+    if inn.sum() < 2:
+        inn = np.abs(dt) < t14 / 2
+    lo, hi = t14 / 2 + 1 / 24, t14 / 2 + 1 / 24 + max(t14, 3 / 24)
+    pre = (dt < -lo) & (dt > -hi)
+    post = (dt > lo) & (dt < hi)
+    if inn.sum() < 1 or pre.sum() < 3 or post.sum() < 3:
+        return np.nan, np.nan
+    oot = pre | post
+    use = oot.copy()
+    for _ in range(5):                         # iterative 3-sigma clipping (spikes)
+        c = np.polyfit(dt[use], f[use], 1)
+        res = f / np.polyval(c, dt) - 1
+        mad = 1.4826 * np.median(np.abs(res[use] - np.median(res[use])))
+        keep = oot & (np.abs(res) < 3 * mad)
+        if keep.sum() < 6 or (keep == use).all():
+            break
+        use = keep
+    r = f / np.polyval(c, dt)
+    depth = 1 - np.median(r[inn]) if inn.sum() >= 5 else 1 - r[inn].mean()
+    sig = 1.4826 * np.median(np.abs(r[use] - 1 - np.median(r[use] - 1)))
+    return float(depth), float(depth / (sig * np.sqrt(1 / inn.sum() + 1 / use.sum())))
+
+
+def pixel_confirm_check(ap_snr, lc_snr, ap_depth=None, lc_depth=None):
+    """Is the dip present in the raw pixels, at the right depth?
+
+    The dip's SNR in a simple TESScut aperture light curve (local_dip_snr: local
+    linear baseline either side of the dip, no PDC) must reach
+    PIXEL_CONFIRM_RATIO of its SNR in the PDCSAP light curve, and at least
+    PIXEL_CONFIRM_MIN. If depths are given, the aperture depth must also be
+    PIXEL_DEPTH_RANGE times the light-curve depth: dilution makes it a bit
+    shallower, but a much shallower or much deeper pixel "dip" is a different
+    signal (e.g. scattered light), not the same event. For the Phase 2
+    validation planets the SNR ratio is >= 0.5 and the depth ratio 0.65-1.74."""
     need = max(PIXEL_CONFIRM_MIN, PIXEL_CONFIRM_RATIO * lc_snr)
-    return dict(passed=bool(np.isfinite(ap_snr) and ap_snr >= need), ap_snr=float(ap_snr),
-                required=float(need), ratio=float(ap_snr / lc_snr) if lc_snr else np.nan)
+    ok = bool(np.isfinite(ap_snr) and ap_snr >= need)
+    dr = np.nan
+    if ap_depth is not None and lc_depth:
+        dr = ap_depth / lc_depth
+        ok = ok and bool(np.isfinite(dr) and PIXEL_DEPTH_RANGE[0] <= dr <= PIXEL_DEPTH_RANGE[1])
+    return dict(passed=ok, ap_snr=float(ap_snr), required=float(need),
+                ratio=float(ap_snr / lc_snr) if lc_snr else np.nan, depth_ratio=float(dr))
 
 
-def pixel_passes(pix, lc_snr):
+def pixel_passes(pix, lc_snr, ap_snr=None, ap_depth=None, lc_depth=None):
     """Combined pixel decision: centroid, neighbours and pixel confirmation."""
+    ap = pix["ap_snr"] if ap_snr is None else ap_snr
     return bool(pix["centroid"]["passed"] and pix["neighbours"]["passed"]
-                and pixel_confirm_check(pix["ap_snr"], lc_snr)["passed"])
+                and pixel_confirm_check(ap, lc_snr, ap_depth, lc_depth)["passed"])
 
 
 def tic_neighbours(ra, dec, wcs, tmag, radius_px=7.5):

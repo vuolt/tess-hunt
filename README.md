@@ -56,3 +56,27 @@ python scripts/phase2_report.py           # ~5 min, re-downloads ~150 stars for 
 Working state (TIC table, sample, `work/s0048.sqlite`, temporary FITS files)
 lives in `work/`, which is git-ignored. Each light curve is deleted as soon as
 its star is analysed.
+
+## Phase 3: vetting
+
+```
+tesshunt/vetting.py      checks 1-7: shape (batman transit vs box/ramp/step/flare-decay, BIC),
+                         duration vs P > 20 d, edge, TESScut difference imaging + centroid +
+                         neighbours + in-pixel confirmation, SkyBoT asteroids, ExoFOP TOI/CTOI +
+                         TESS EB catalogue, TRICERATOPS FPP
+scripts/phase3_vet.py    resumable stages: lc | pixels | fpp | report
+scripts/phase3_report.py funnel, validation table, shortlist, vetting sheets
+results/phase3/          vetting_all.csv, shortlist.csv, validation.csv, summary.json
+plots/phase3/            funnel.png, sheets/ (shortlist), validation/ (known TOIs)
+```
+
+```
+python scripts/phase3_vet.py lc        # ~15 min: re-downloads each candidate's light curve
+python scripts/phase3_vet.py pixels    # ~20 min: TESScut, SkyBoT, catalogues
+python scripts/phase3_vet.py fpp       # ~1.5 h: TRICERATOPS (Gaia DR3 over HTTPS)
+python scripts/phase3_vet.py report
+```
+
+Cutouts and light curves are reduced and discarded; cached per-candidate
+results live in `work/phase3/` (git-ignored). TRICERATOPS needs
+`setuptools<81` (its `pytransit` dependency imports `pkg_resources`).

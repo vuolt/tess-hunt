@@ -40,7 +40,9 @@ def collect(tg):
         o["lc_status"] = lc["status"] if lc else "not run"
         if lc and lc["status"] == "ok":
             sh, du, ed, tr = lc["shape"], lc["duration"], lc["edge"], lc["shape"]["transit"]
-            o.update(shape=sh["passed"], dbic_alt=sh["dbic_alt"], dbic_box=sh["dbic_box"],
+            o.update(shape=v.shape_passes(sh["dbic_alt"], sh["dbic_box"]),
+                     shape_strict_box=v.shape_passes(sh["dbic_alt"], sh["dbic_box"], -6.0),
+                     dbic_alt=sh["dbic_alt"], dbic_box=sh["dbic_box"],
                      best_alt=sh["best_alt"], fit_t0=tr["t0"], fit_rp=tr["rp"],
                      fit_t14_h=tr["t14_h"], fit_b=tr["b"], fit_depth_ppm=tr["depth_ppm"],
                      grazing=tr["grazing"], duration=du["passed"], t_min_h=du.get("t_min_h"),
@@ -50,17 +52,25 @@ def collect(tg):
         o["pix_status"] = px["status"] if px else "not run"
         if px and px["status"] == "ok":
             p, c, n = px["pixels"], px["pixels"]["centroid"], px["pixels"]["neighbours"]
-            o.update(pixels=p["passed"], centroid=c["passed"], centroid_offset_px=c["offset_px"],
+            conf = v.pixel_confirm_check(p["ap_snr"], r["snr"])
+            ast = px["asteroid"]
+            ast_ok = None if (ast.get("passed") is None or ast.get("error")) else ast["passed"]
+            cat = px["catalogue"]
+            o.update(pixels=v.pixel_passes(p, r["snr"]), pixel_confirm=conf["passed"],
+                     pixel_snr_ratio=conf["ratio"],
+                     centroid=c["passed"], centroid_offset_px=c["offset_px"],
                      centroid_sigma=c["offset_sigma"], diff_snr=c["diff_snr"],
                      centroid_inconclusive=c["inconclusive"], neighbours=n["passed"],
                      neighbours_failing=";".join(map(str, n["failing"])),
                      n_unresolved=len(n["unresolved"]), ap_snr=p["ap_snr"],
-                     asteroid=px["asteroid"]["passed"],
-                     asteroid_hits=";".join(h["name"] for h in px["asteroid"]["hits"]),
-                     catalogue=px["catalogue"]["passed"], known=px["catalogue"]["known"],
-                     eb=px["catalogue"]["eb"], toi_fp=px["catalogue"]["toi_fp"],
-                     tois=";".join(px["catalogue"]["tois"]),
-                     ctois=";".join(px["catalogue"]["ctois"]))
+                     asteroid=ast_ok,
+                     asteroid_hits=";".join(f"{h['name']} (V={h['v']:.1f}, {h['min_sep_arcsec']:.0f}\")"
+                                            for h in ast["hits"]),
+                     catalogue=v.catalogue_check_passes(cat), known=cat["known"],
+                     eb=cat["eb"], eb_overridden=bool(cat["eb"] and any(
+                         d in ("CP", "KP") for d in cat.get("toi_disp", []))),
+                     toi_fp=cat["toi_fp"], tois=";".join(cat["tois"]),
+                     toi_disp=";".join(cat.get("toi_disp", [])), ctois=";".join(cat["ctois"]))
         o["fpp_status"] = fp["status"] if fp else "not run"
         if fp and fp["status"] == "ok":
             o.update(fpp=fp["fpp"]["passed"], fpp_value=fp["fpp"]["fpp"],
@@ -90,7 +100,7 @@ def independent(df):
     check was run on: 1-3 on every candidate, 4-6 on survivors of 1-3, 7 on
     survivors of 1-6)."""
     res = {}
-    for c in CHECKS:
+    for c in CHECKS[:3] + ["centroid", "neighbours", "pixel_confirm"] + CHECKS[3:]:
         if c in df:
             ran = df[c].notna()
             res[c] = dict(ran=int(ran.sum()), failed=int((df[c] == False).sum()))  # noqa: E712
@@ -189,7 +199,7 @@ def sheet(row, path):
     ax.set_axis_off()
     lines = check_lines(row)
     for i, (name, ok, detail) in enumerate(lines):
-        y = 0.95 - i * 0.105
+        y = 0.97 - i * 0.097
         col = {True: "C2", False: "C3", None: "0.5"}[ok]
         mark = {True: "PASS", False: "FAIL", None: "n/a"}[ok]
         ax.text(0.0, y, name, fontsize=9, transform=ax.transAxes, weight="bold")
@@ -197,6 +207,14 @@ def sheet(row, path):
         ax.text(0.0, y - 0.045, detail, fontsize=7, transform=ax.transAxes, color="0.3")
     fig.savefig(path, dpi=80, bbox_inches="tight")
     plt.close(fig)
+
+
+def _disp_for(r):
+    tois, disps = str(r.get("tois") or "").split(";"), str(r.get("toi_disp") or "").split(";")
+    for t, d in zip(tois, disps):
+        if t == str(r.get("toi_phase2")):
+            return d
+    return ""
 
 
 def _b(x):
@@ -220,6 +238,9 @@ def check_lines(r):
          + (" [inconclusive]" if r.get("centroid_inconclusive") else "")),
         ("4b Neighbours", _b(r.get("neighbours")),
          f"stronger on: {r.get('neighbours_failing') or 'none'}; unresolved: {r.get('n_unresolved', '-')}"),
+        ("4c In pixels", _b(r.get("pixel_confirm")),
+         f"aperture dip SNR {f(r.get('ap_snr'), '.1f')} = {f(r.get('pixel_snr_ratio'), '.2f')} x LC SNR "
+         f"(need >= {v.PIXEL_CONFIRM_RATIO:g})"),
         ("5 Asteroids", _b(r.get("asteroid")), f"hits: {r.get('asteroid_hits') or 'none'}"),
         ("6 Catalogues", _b(r.get("catalogue")),
          f"TOI {r.get('tois') or '-'} CTOI {r.get('ctois') or '-'} EB {r.get('eb')}"),
@@ -275,11 +296,13 @@ def report(tg):
         sheet(r, os.path.join(PLOTS, "sheets", f"{int(r.shortlist_rank):02d}_tic{r.tic}.png"))
 
     val = df[df.is_validation].copy()
+    val["tfop_disp"] = [_disp_for(r) for _, r in val.iterrows()]
+    val["known_fp"] = val.tfop_disp.isin(["FP", "FA"])
     for _, r in val.iterrows():
         if r.lc_status == "ok" and r.pix_status == "ok":
             toi = r.toi_phase2 or "x"
             sheet(r, os.path.join(PLOTS, "validation", f"toi{toi}_tic{r.tic}.png"))
-    vt = val[["tic", "toi_phase2", "tmag", "snr", "fit_depth_ppm", "fit_t14_h"] +
+    vt = val[["tic", "toi_phase2", "tfop_disp", "tmag", "snr", "fit_depth_ppm", "fit_t14_h"] +
              [c for c in CHECKS if c in val] + ["fpp_value", "nfpp_value"]]
     vt.to_csv(os.path.join(OUT, "validation.csv"), index=False, float_format="%.4g")
 
@@ -290,14 +313,20 @@ def report(tg):
         independent=indep,
         survivors=int(len(surv)), survivors_new=int(surv.new.sum()),
         survivors_known=int((~surv.new).sum()),
-        validation=dict(
-            n=int(len(val)),
-            per_check={c: dict(ran=int(val[c].notna().sum()),
-                               passed=int((val[c] == True).sum()))  # noqa: E712
-                       for c in CHECKS if c in val},
-            all_passed=int(val[[c for c in CHECKS if c in val]].eq(True).all(axis=1).sum()),
-            failures={r.toi_phase2: [c for c in CHECKS if c in val and r[c] == False]  # noqa: E712
-                      for _, r in val.iterrows()}),
+        validation={name: dict(
+            n=int(len(g)),
+            per_check={c: dict(ran=int(g[c].notna().sum()),
+                               passed=int((g[c] == True).sum()))  # noqa: E712
+                       for c in CHECKS + ["centroid", "neighbours", "pixel_confirm"] if c in g},
+            all_passed=int(g[[c for c in CHECKS if c in g]].eq(True).all(axis=1).sum()),
+            failures={r.toi_phase2: [c for c in CHECKS if c in g and r[c] == False]  # noqa: E712
+                      for _, r in g.iterrows()})
+            for name, g in (("planets", val[~val.known_fp]), ("known_false_positives",
+                                                              val[val.known_fp]))},
+        shape_with_box_rule=dict(
+            candidates_fail_extra=int(((cand.shape == True) & (cand.shape_strict_box == False)).sum()),  # noqa: E712
+            validation_fail_extra=int(((val.shape == True) & (val.shape_strict_box == False)
+                                       & ~val.known_fp).sum())),  # noqa: E712
         errors={s: df[f"{s}_status"].value_counts().to_dict() for s in ("lc", "pix", "fpp")},
     )
     with open(os.path.join(OUT, "summary.json"), "w") as fh:

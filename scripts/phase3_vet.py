@@ -173,6 +173,10 @@ def pixel_job(row):
     k = row["key"]
     out = jpath("pix", k)
     if os.path.exists(out):
+        r = load_json(out)
+        if r["status"] == "ok" and (r["asteroid"].get("passed") is None
+                                    or r["asteroid"].get("error")):
+            return k, retry_asteroid(row, r, out)
         return k, "cached"
     try:
         lcr = load_json(jpath("lc", k))
@@ -198,9 +202,10 @@ def pixel_job(row):
         inn = np.abs(tl - t0) < 0.4 * t14
         ap_depth = float(1 - fl[inn].mean()) if inn.any() else np.nan
         ap_snr = float(ap_depth / (v._robust_sigma_pt(fl[oo]) / np.sqrt(max(inn.sum(), 1))))
-        pix = dict(passed=bool(ct["passed"] and nt["passed"]), centroid=ct, neighbours=nt,
-                   n_in=n_in, n_oot=n_oot, ap_depth_ppm=ap_depth * 1e6, ap_snr=ap_snr,
-                   n_ap=int(ap.sum()))
+        pix = dict(centroid=ct, neighbours=nt, n_in=n_in, n_oot=n_oot,
+                   ap_depth_ppm=ap_depth * 1e6, ap_snr=ap_snr, n_ap=int(ap.sum()))
+        pix["confirm"] = v.pixel_confirm_check(ap_snr, row["snr"])
+        pix["passed"] = v.pixel_passes(pix, row["snr"])
         ap_abs = [[cut["col0"] + int(ix), cut["row0"] + int(iy)]
                   for iy, ix in zip(*np.nonzero(ap))]
         np.savez_compressed(jpath("pix", k, "npz"), diff=diff, noise=noise, oot=oot, ap=ap,
@@ -211,7 +216,7 @@ def pixel_job(row):
             objs = v.skybot_query(row["ra"], row["dec"], t0 + 2457000.0)
             ast = v.asteroid_check(objs, row["ra"], row["dec"], t14 * 24)
         except Exception as e:  # noqa: BLE001
-            ast = dict(passed=True, error=f"{type(e).__name__}: {e}", hits=[], n_objects=None)
+            ast = dict(passed=None, error=f"{type(e).__name__}: {e}", hits=[], n_objects=None)
         # 6: catalogues
         if _CATS is None:
             _CATS = v.load_catalogues(WORK)
@@ -225,14 +230,29 @@ def pixel_job(row):
         return k, "error"
 
 
-def passed_pix(k):
+def retry_asteroid(row, r, out):
+    lcr = load_json(jpath("lc", row["key"]))
+    tr = lcr["shape"]["transit"]
+    try:
+        objs = v.skybot_query(row["ra"], row["dec"], tr["t0"] + 2457000.0)
+        r["asteroid"] = v.asteroid_check(objs, row["ra"], row["dec"], tr["t14_h"])
+    except Exception as e:  # noqa: BLE001
+        r["asteroid"].update(passed=None, error=f"{type(e).__name__}: {e}")
+        save_json(out, r)
+        return "error"
+    save_json(out, r)
+    return "asteroid retried"
+
+
+def passed_pix(k, lc_snr=None):
     p = jpath("pix", k)
     if not os.path.exists(p):
         return None
     r = load_json(p)
-    if r["status"] != "ok":
+    if r["status"] != "ok" or r["asteroid"].get("passed") is None or r["asteroid"].get("error"):
         return None
-    return r["pixels"]["passed"] and r["asteroid"]["passed"] and r["catalogue"]["passed"]
+    pix = v.pixel_passes(r["pixels"], lc_snr) if lc_snr is not None else r["pixels"]["passed"]
+    return pix and r["asteroid"]["passed"] and v.catalogue_check_passes(r["catalogue"])
 
 
 # ---------------------------------------------------------------- stage: fpp
@@ -315,10 +335,11 @@ def main():
                 (r["is_validation"] and passed_lc(r["key"]) is not None)]
         fn, threads = pixel_job, True
     else:
-        todo = [r for r in rows if (passed_lc(r["key"]) and passed_pix(r["key"])) or
-                (r["is_validation"] and passed_pix(r["key"]) is not None)]
+        todo = [r for r in rows if (passed_lc(r["key"]) and passed_pix(r["key"], r["snr"])) or
+                (r["is_validation"] and passed_pix(r["key"], r["snr"]) is not None)]
         fn, threads = fpp_job, False
-    todo = [r for r in todo if not os.path.exists(jpath(stage, r["key"]))]
+    if args.stage != "pixels":
+        todo = [r for r in todo if not os.path.exists(jpath(stage, r["key"]))]
     if args.limit:
         todo = todo[:args.limit]
     print(f"{args.stage}: {len(tg)} targets ({int(tg.is_candidate.sum())} candidates, "

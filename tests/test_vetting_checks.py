@@ -158,17 +158,29 @@ def test_parse_skybot_and_asteroid_check():
 
 def test_catalogue_check():
     cats = dict(
-        exofop_toi=pd.DataFrame({"TIC ID": [1, 2], "TOI": [100.01, 200.01],
-                                 "TFOPWG Disposition": ["PC", "FP"]}),
+        exofop_toi=pd.DataFrame({"TIC ID": [1, 2, 7], "TOI": [100.01, 200.01, 300.01],
+                                 "TFOPWG Disposition": ["PC", "FP", "CP"]}),
         exofop_ctoi=pd.DataFrame({"TIC ID": [3], "CTOI": ["3.01"]}),
-        tess_ebs=pd.DataFrame({"tess_id": [4]}), villanova_ebs={6})
+        tess_ebs=pd.DataFrame({"tess_id": [4, 7]}), villanova_ebs={6})
     assert v.catalogue_check(1, cats)["passed"] and v.catalogue_check(1, cats)["known"]
     assert not v.catalogue_check(2, cats)["passed"]                    # TOI marked FP
     assert v.catalogue_check(3, cats)["known"]
     assert not v.catalogue_check(4, cats)["passed"]                    # known EB
     assert not v.catalogue_check(6, cats)["passed"]                    # Villanova-only EB
+    r7 = v.catalogue_check(7, cats)                                     # EB-listed planet host
+    assert r7["passed"] and r7["eb_overridden"]
     r = v.catalogue_check(5, cats)
     assert r["passed"] and not r["known"]
+    for tic in (1, 2, 3, 4, 5, 6, 7):
+        r = v.catalogue_check(tic, cats)
+        assert v.catalogue_check_passes(r) == r["passed"]
+
+
+def test_pixel_confirm_check():
+    assert v.pixel_confirm_check(12.0, 15.0)["passed"]
+    assert not v.pixel_confirm_check(2.0, 8.0)["passed"]         # below absolute floor
+    assert not v.pixel_confirm_check(5.0, 40.0)["passed"]        # < 0.3 x light-curve SNR
+    assert not v.pixel_confirm_check(float("nan"), 10.0)["passed"]
 
 
 # ---------------------------------------------------------------- 7 FPP

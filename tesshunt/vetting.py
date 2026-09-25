@@ -13,7 +13,7 @@ Phase 3 adds per-candidate checks (see the section further down):
   1 shape_test        limb-darkened transit vs box / ramp / step / flare-decay (BIC)
   2 duration_check    T14 long enough for P > DUR_P_MIN (unless grazing)
   3 edge_check        no dips against data gaps unless resolved on both sides
-  4 centroid_test, neighbour_test   difference imaging on TESScut pixels
+  4 centroid_test, neighbour_test, pixel_confirm_check   TESScut pixels
   5 asteroid_check    SkyBoT known solar-system objects at the dip time
   6 catalogue_check   ExoFOP TOIs/CTOIs, TESS EB catalogue
   7 fpp_check         TRICERATOPS false-positive probability
@@ -543,6 +543,8 @@ DIFF_MIN_SNR = 3.0         # below this the difference image cannot test anythin
 NEIGHBOUR_PX = 2.0         # neighbours within this many pixels are tested
 NEIGHBOUR_SIGMA = 3.0
 NEIGHBOUR_RATIO = 1.5
+PIXEL_CONFIRM_RATIO = 0.3  # dip SNR in the TESScut aperture vs. light-curve SNR
+PIXEL_CONFIRM_MIN = 3.0
 
 
 def tesscut_cutout(ra, dec, sector, size=15):
@@ -671,6 +673,25 @@ def neighbour_test(diff, noise, oot, x0, y0, neighbours, depth):
                 frac_target=float(ft))
 
 
+def pixel_confirm_check(ap_snr, lc_snr):
+    """Is the dip present in the raw pixels?
+
+    The dip's SNR in a simple TESScut aperture light curve (local linear
+    baseline, no PDC) must reach PIXEL_CONFIRM_RATIO of its SNR in the
+    PDCSAP light curve, and at least PIXEL_CONFIRM_MIN. For the Phase 2
+    validation planets the ratio is 0.6-4; dips that are absent from the
+    pixels come from the light-curve processing or systematics, not the sky."""
+    need = max(PIXEL_CONFIRM_MIN, PIXEL_CONFIRM_RATIO * lc_snr)
+    return dict(passed=bool(np.isfinite(ap_snr) and ap_snr >= need), ap_snr=float(ap_snr),
+                required=float(need), ratio=float(ap_snr / lc_snr) if lc_snr else np.nan)
+
+
+def pixel_passes(pix, lc_snr):
+    """Combined pixel decision: centroid, neighbours and pixel confirmation."""
+    return bool(pix["centroid"]["passed"] and pix["neighbours"]["passed"]
+                and pixel_confirm_check(pix["ap_snr"], lc_snr)["passed"])
+
+
 def tic_neighbours(ra, dec, wcs, tmag, radius_px=7.5):
     """TIC stars around the target, in cutout pixel coordinates."""
     from astropy.coordinates import SkyCoord
@@ -704,16 +725,25 @@ ASTEROID_V_MAX = 19.0      # fainter objects cannot mimic a >~0.1 % dip at T <= 
 ASTEROID_R_ARCSEC = 60.0   # ~3 px: aperture plus the pixels used for its background
 
 
-def skybot_query(ra, dec, jd, radius_deg=0.2, loc="C57", timeout=60):
-    """Known solar-system objects near (ra, dec) at JD (SkyBoT, TESS = C57)."""
+def skybot_query(ra, dec, jd, radius_deg=0.2, loc="C57", timeout=60, retries=5):
+    """Known solar-system objects near (ra, dec) at JD (SkyBoT, TESS = C57).
+
+    Retries with backoff: the service resets connections under load."""
+    import time
     q = {"-ep": f"{jd:.5f}", "-ra": ra, "-dec": dec, "-rd": radius_deg, "-mime": "text",
          "-output": "all", "-loc": loc, "-filter": 0, "-objFilter": "111",
          "-refsys": "EQJ2000"}
     url = ("https://ssp.imcce.fr/webservices/skybot/api/conesearch.php?"
            + urllib.parse.urlencode(q))
-    with urllib.request.urlopen(url, timeout=timeout) as r:
-        text = r.read().decode()
-    return parse_skybot(text)
+    for attempt in range(retries):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                text = r.read().decode()
+            return parse_skybot(text)
+        except Exception:  # noqa: BLE001
+            if attempt == retries - 1:
+                raise
+            time.sleep(3 * 2 ** attempt)
 
 
 def parse_skybot(text):
@@ -798,8 +828,10 @@ def _fetch_villanova(path, max_pages=200):
 
 
 def catalogue_check(tic, cats):
-    """Known TOI/CTOI -> 'known' (passes, but is not new); TESS EB or a TOI
-    dispositioned false positive/false alarm -> fail."""
+    """Known TOI/CTOI -> 'known' (passes, but is not new); a TOI on the star
+    dispositioned false positive/false alarm -> fail; listed in the TESS EB
+    catalogue -> fail, unless the star hosts a confirmed/known planet (TFOPWG
+    CP/KP), since the EB catalogue includes some planet hosts (e.g. HD 191939)."""
     toi = cats["exofop_toi"]
     ctoi = cats["exofop_ctoi"]
     ebs = cats["tess_ebs"]
@@ -808,9 +840,18 @@ def catalogue_check(tic, cats):
     eb = bool((ebs["tess_id"] == tic).any()) or tic in cats.get("villanova_ebs", set())
     disp = [str(x) for x in t["TFOPWG Disposition"].fillna("")]
     fp = any(d in ("FP", "FA") for d in disp)
-    return dict(passed=not (eb or fp), eb=eb, toi_fp=fp,
+    planet_host = any(d in ("CP", "KP") for d in disp)
+    eb_reject = eb and not planet_host
+    return dict(passed=not (eb_reject or fp), eb=eb, eb_overridden=bool(eb and planet_host),
+                toi_fp=fp,
                 tois=[str(x) for x in t["TOI"]], toi_disp=disp,
                 ctois=[str(x) for x in c["CTOI"]], known=bool(len(t) or len(c)))
+
+
+def catalogue_check_passes(res):
+    """Re-apply the catalogue decision to a stored catalogue_check result."""
+    planet_host = any(d in ("CP", "KP") for d in res.get("toi_disp", []))
+    return bool(not res["toi_fp"] and not (res["eb"] and not planet_host))
 
 
 # ------------------------------------------------------------------ TRICERATOPS

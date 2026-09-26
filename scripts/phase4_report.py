@@ -12,7 +12,13 @@ DROP if any of
   D3 the host shows binarity (RUWE > 1.4, Gaia NSS, image doubling, RV
      variability or a close similar-brightness WDS pair) AND the companion
      radius, corrected for that dilution, exceeds 2 R_J;
-  D4 vetted second dips exist but no period is consistent with all of them.
+  D4 vetted second dips exist but no period is consistent with all of them;
+  D5 the "dip" is a flux step: in the undetrended TESScut pixels AND in every
+     other light curve covering it, the in-transit level continues the
+     baseline on one side (vetting.one_sided_check). Added after rules D1-D4
+     and S1-S5 had been applied, when TIC 27068699 turned out to be a
+     single-pixel jump; checked against the validation planets before use
+     (results/phase4/confirm_validation.csv).
 
 SUBMIT (as CTOI) if not dropped and all of
   S1 Phase 3 FPP < 0.1 and no Phase 3 review notes other than
@@ -139,6 +145,13 @@ def classify(g):
                                 f"expected SNR {best['expected_snr']:.0f})")
         else:
             good.append(f"confirmed in {best['kind']} (depth ratio {r:.2f}, SNR {best['snr']:.1f})")
+    # D5: a step, not a dip
+    stepped = [m for m in g["confirm"] if m.get("available") and (m.get("step") or {}).get("one_sided") is not None]
+    if (stepped and any(m["kind"] == "tesscut" for m in stepped) and len(stepped) >= 2
+            and all(m["step"]["one_sided"] for m in stepped)):
+        reasons_drop.append("D5 flux step, not a dip: in-transit level continues one side's baseline in "
+                            + ", ".join(f"{m['kind']} ({m['step']['pre']:+.2f}/{m['step']['post']:+.2f} of "
+                                        "the depth before/after)" for m in stepped))
     # D2
     if "very long dip" in notes and ("grazing" in notes or "centroid offset" in notes):
         reasons_drop.append("D2 very long and V-shaped/off-centre: variability or systematics signature")
@@ -235,9 +248,15 @@ def ctoi_rows(rows, sector):
         dep_ppm = g["depth"] * 1e6
         rp_re = g["rp_rj_diluted"] * RJUP_REARTH
         bn = g["binarity"] or {}
-        vet = (f"Passes 7-step vetting (tess-hunt Phase 3): shape dBIC {g.get('dbic_alt', float('nan')):.0f}"
-               f" vs best non-transit model; centroid on target; dip present in raw pixels; "
-               f"no known asteroid; not a known EB/TOI; TRICERATOPS FPP {g['fpp']:.3f}.")
+        steps = [m for m in g["confirm"] if m.get("available") and (m.get("step") or {}).get("one_sided") is False]
+        vet = (f"Passes 7-step vetting (tess-hunt Phase 3): transit preferred over the best "
+               f"non-transit model ({g.get('best_alt')}) by dBIC {g.get('dbic_alt', float('nan')):.0f}; "
+               f"centroid on target; dip present in raw pixels; no known asteroid; not a known "
+               f"EB/TOI; TRICERATOPS FPP {g['fpp']:.3f}. Not a flux step: the in-transit level "
+               f"is below both local baselines in {', '.join(m['kind'] for m in steps)} (Phase 4).")
+        if g["snr"] < 10 or g["fpp"] > 0.05:
+            vet += (f" Caveat: marginal (SNR {g['snr']:.1f}, FPP {g['fpp']:.3f}); "
+                    "follow-up photometry should precede heavy investment.")
         conf = "; ".join(g["positives"])
         per = g["period_summary"]
         out.append({
@@ -275,19 +294,24 @@ def period_plot(ax, g, P):
     if z is None:
         ax.text(0.5, 0.5, "no period scan", transform=ax.transAxes, ha="center")
         return
-    Pp, A = z["P"], z["allowed"].astype(float)
-    ax.fill_between(Pp, 0, A, step="mid", color="C2", alpha=0.6, lw=0, label="allowed")
-    ax.fill_between(Pp, 0, 1 - A, step="mid", color="0.8", lw=0, label="excluded by TESS data")
+    Pp = z["P"]
     per = g["periods"] or {}
+    # Drawn from the full-resolution intervals, widened to stay visible on a
+    # log axis: many allowed windows are narrower than a pixel.
+    ax.axvspan(Pp[0], Pp[-1] * 1.3, color="0.8", lw=0, label="excluded by TESS data")
+    for k, (lo, hi) in enumerate(per.get("intervals") or []):
+        mid = np.sqrt(lo * hi)
+        w = max(hi / lo, 1.004) ** 0.5
+        ax.axvspan(mid / w, mid * w, color="C2", alpha=0.8, lw=0, label="allowed" if k == 0 else None)
     floor = per.get("longest_excluded_below")
     if floor:
         ax.axvline(floor, color="k", ls=":", lw=1)
         ax.text(floor, 1.02, f" all P > {floor:.0f} d allowed", fontsize=7, va="bottom")
     if g.get("p_min_circ") and g["p_min_circ"] == g["p_min_circ"] and g["p_min_circ"] > Pp[0]:
         ax.axvline(g["p_min_circ"], color="C1", ls="--", lw=1.2,
-                   label=f"min P (duration, b=0): {g['p_min_circ']:.0f} d")
+                   label=f"min P if circular (duration, b=0): {g['p_min_circ']:.0f} d")
     for p in (g.get("joint_periods") or [])[:10]:
-        ax.axvline(p, color="C3", lw=1.5)
+        ax.axvline(p, color="C3", lw=1.5, label="period from second transit(s)" if p == g["joint_periods"][0] else None)
     ax.set_xscale("log")
     ax.set_xlim(Pp[0], Pp[-1] * 1.3)
     ax.set_ylim(0, 1.15)
@@ -307,7 +331,8 @@ def followup_sheet(g, P, sector, path):
         if r.get("t_start") is None:
             continue
         ax.axvspan(r["t_start"], r["t_end"], ymin=0.2, ymax=0.8, color=colors[r["kind"]], alpha=0.6)
-        ax.text((r["t_start"] + r["t_end"]) / 2, 0.85, str(r["sector"]), ha="center", fontsize=6)
+        ax.text((r["t_start"] + r["t_end"]) / 2, 0.86, str(r["sector"]), ha="center", fontsize=6,
+                transform=ax.get_xaxis_transform())
     ax.axvline(g["t0"], color="C3", lw=2)
     for d in g["other_dips"]:
         good = (d["passed_1_4"] or d["partial"]) and d["consistent_shape"]
@@ -319,10 +344,11 @@ def followup_sheet(g, P, sector, path):
     ax.plot([], [], color="k", lw=1.5, label="vetted 2nd dip")
     ax.plot([], [], color="0.6", ls=":", label="consistent-depth dip failing vetting")
     ax.set_yticks([])
+    ax.set_ylim(0, 1)
     ax.set_xlabel("BTJD")
-    ax.legend(fontsize=7, ncol=7, loc="lower center", bbox_to_anchor=(0.5, 1.15))
+    ax.legend(fontsize=7, ncol=7, loc="lower center", bbox_to_anchor=(0.5, 1.05))
     ax.set_title(f"TIC {g['tic']}: {g['category'].upper()}  |  {g['n_sectors']} sectors observed",
-                 fontsize=11, pad=28)
+                 fontsize=11, pad=22)
     # original dip in independent photometry
     ax = fig.add_subplot(gs[1, 0])
     shown = 0
@@ -419,7 +445,11 @@ def report(cands, sector):
             joint_periods=";".join(f"{p:.3f}" for p in (g["joint_periods"] or [])),
             confirm=";".join(f"{m['kind']}:{m.get('depth_ratio') or float('nan'):.2f}/"
                              f"{m.get('snr') or float('nan'):.1f}"
-                             for m in g["confirm"] if m.get("available")),
+                             for m in g["confirm"] if m.get("available") and m["kind"] != "tess-spoc"),
+            step=";".join(f"{m['kind']}:{m['step']['pre']:+.2f}/{m['step']['post']:+.2f}"
+                          f"{'*' if m['step']['one_sided'] else ''}"
+                          for m in g["confirm"] if m.get("available") and m.get("step")
+                          and m["step"]["one_sided"] is not None),
             reasons="; ".join(g["reasons_drop"] + g["reasons_maybe"]),
             positives="; ".join(g["positives"]), period_summary=g["period_summary"]))
     df = pd.DataFrame(table)

@@ -3,7 +3,9 @@
     python scripts/phase4.py coverage   # sectors + best light curve per sector (S3 first)
     python scripts/phase4.py search     # Phase 2 search + duotransit search + checks 1-4
     python scripts/phase4.py periods    # allowed-period maps
+    python scripts/phase4.py confirm    # the S48 dip in QLP / SPOC 2-min / TESScut + step test
     python scripts/phase4.py binarity   # Gaia DR3 RUWE, NSS, companions, WDS, El-Badry
+    python scripts/phase4.py validate   # rules D1 and D5 on the Phase 3 validation planets
     python scripts/phase4.py rank       # submit / maybe / drop + CTOI summaries
     python scripts/phase4.py report     # sheets, CSVs, summary
     python scripts/phase4.py all
@@ -84,10 +86,31 @@ def candidates(sector, controls=True):
     if controls:
         for tic, label in CONTROLS.items():
             rows.append(dict(tic=tic, role="control", rank3=None, label=label))
+    return _with_fits(P, sl, va, rows)
+
+
+def validation_planets(sector):
+    """The Phase 3 validation set (known TOIs with one predicted transit in the
+    sector, plus TOI-2180 b), with the same fit parameters as candidates."""
+    P = paths(sector)
+    sl = pd.read_csv(os.path.join(P["p3"], "shortlist.csv"))
+    va = pd.read_csv(os.path.join(P["p3"], "vetting_all.csv"))
+    val = va[va.is_validation & (va.lc_status == "ok")]
+    rows = [dict(tic=int(t), role="validation", rank3=None) for t in sorted(set(val.tic))]
+    df = _with_fits(P, sl, va, rows, validation=True)
+    info = val.sort_values("snr", ascending=False).drop_duplicates("tic").set_index("tic")
+    df["toi"] = [info.tois.get(t) for t in df.tic]
+    df["tfop_disp"] = [info.toi_disp.get(t) for t in df.tic]
+    return df
+
+
+def _with_fits(P, sl, va, rows, validation=False):
     out = []
     for r in rows:
         g = va[(va.tic == r["tic"]) & (va.lc_status == "ok")]
-        if r["role"] == "candidate":
+        if validation:
+            g = g[g.is_validation]
+        elif r["role"] == "candidate":
             g = g[g.is_candidate]
         g = g.sort_values("snr", ascending=False)
         if g.empty:
@@ -98,7 +121,8 @@ def candidates(sector, controls=True):
         r.update(key=k.key, t0=tr["t0"], t14=tr["t14_h"] / 24, depth=tr["depth_ppm"] * 1e-6,
                  b=tr["b"], rp=tr["rp"], snr=float(k.snr), tier=k.tier if isinstance(k.tier, str) else "",
                  fpp=float(k.fpp_value) if k.fpp_value == k.fpp_value else None,
-                 p_min_circ=lc["duration"].get("p_b0_d"), review_notes="")
+                 p_min_circ=lc["duration"].get("p_b0_d"), review_notes="",
+                 dbic_alt=lc["shape"].get("dbic_alt"), best_alt=lc["shape"].get("best_alt"))
         out.append(r)
     df = pd.DataFrame(out)
     sample = pd.read_csv(P["sample"], usecols=["ID", "ra", "dec", "Tmag", "rad", "mass", "Teff"])
@@ -221,19 +245,19 @@ def original_confirmation(c, sector, t, f, kind):
                 depth_ratio=dep / c["depth"] if c["depth"] else None)
 
 
-def stage_confirm(c, P, sector):
+def confirm_measurements(c, sector):
     """Measure the original dip in independently processed photometry of the
     same sector: SPOC 2-min (if any) and QLP (not the TESS-SPOC light curve
-    the dip was found in). Also report the TESScut aperture measurement."""
-    out = os.path.join(P["work"], "confirm", f"{c['tic']}.json")
-    if os.path.exists(out):
-        return "cached"
+    the dip was found in), plus our TESScut aperture. Every product, the
+    discovery light curve included, also gets the step test on its
+    undetrended flux (vetting.one_sided_check)."""
     res = []
-    for kind in ("spoc2min", "qlp", "tesscut"):
+    for kind in ("spoc2min", "qlp", "tesscut", "tess-spoc"):
         p = _product(c, sector, kind)
         if p is None:
             res.append(dict(kind=kind, available=False))
             continue
+        step = v.one_sided_check(p.lc.time, p.lc.flux, c["t0"], c["t14"], c["depth"])
         t, f = ms.candidate_detrend(p.lc, c["t14"])
         dep, snr = v.local_dip_snr(t, f, c["t0"], c["t14"])
         sig_pt = 1.4826 * np.median(np.abs(np.diff(f))) / np.sqrt(2)
@@ -241,8 +265,16 @@ def stage_confirm(c, P, sector):
         exp_snr = c["depth"] / (sig_pt / np.sqrt(n_in)) if sig_pt > 0 else np.nan
         res.append(dict(kind=kind, available=True, cadence_min=p.cadence_min,
                         depth_ppm=dep * 1e6, snr=snr, expected_snr=exp_snr,
-                        depth_ratio=dep / c["depth"] if c["depth"] else None))
-    jdump(out, dict(tic=c["tic"], sector=sector, measurements=res))
+                        depth_ratio=dep / c["depth"] if c["depth"] else None,
+                        step=step))
+    return res
+
+
+def stage_confirm(c, P, sector):
+    out = os.path.join(P["work"], "confirm", f"{c['tic']}.json")
+    if os.path.exists(out):
+        return "cached"
+    jdump(out, dict(tic=c["tic"], sector=sector, measurements=confirm_measurements(c, sector)))
     return "ok"
 
 
@@ -303,6 +335,42 @@ STAGES = {"coverage": stage_coverage, "search": stage_search, "confirm": stage_c
           "periods": stage_periods, "binarity": stage_binarity}
 
 
+def stage_validate(sector):
+    """Rules D1 and D5 applied to known planets: neither may drop them."""
+    P = paths(sector)
+    rows = []
+    for c in validation_planets(sector).to_dict("records"):
+        cache = os.path.join(P["work"], "validate", f"{c['tic']}.json")
+        if not os.path.exists(cache):
+            jdump(cache, dict(tic=c["tic"], measurements=confirm_measurements(c, sector)))
+        for m in jload(cache)["measurements"]:
+            st = m.get("step") or {}
+            rows.append(dict(tic=c["tic"], toi=c["toi"], tfop_disp=c["tfop_disp"],
+                             depth_ppm=round(c["depth"] * 1e6), t14_h=round(c["t14"] * 24, 1),
+                             product=m["kind"], available=m.get("available"),
+                             expected_snr=m.get("expected_snr"), depth_ratio=m.get("depth_ratio"),
+                             snr=m.get("snr"), step_pre=st.get("pre"), step_post=st.get("post"),
+                             one_sided=st.get("one_sided")))
+    df = pd.DataFrame(rows)
+    os.makedirs(P["out"], exist_ok=True)
+    df.to_csv(os.path.join(P["out"], "confirm_validation.csv"), index=False, float_format="%.4g")
+    from phase4_report import CONFIRM_MIN_RATIO, CONFIRM_SNR
+    a = df[df.available.fillna(False).astype(bool)]
+    d1 = a[a["product"].isin(["spoc2min", "qlp"]) & (a.expected_snr >= CONFIRM_SNR)]
+    d1_best = d1.sort_values("expected_snr").groupby("tic").tail(1)
+    st = a[a.one_sided.notna()]
+    d5 = st.groupby("tic").apply(lambda g: bool((g["product"] == "tesscut").any() and len(g) >= 2
+                                                and g.one_sided.astype(bool).all()))
+    summ = dict(planets=int(df.tic.nunique()),
+                d1_testable=int(d1_best.tic.nunique()),
+                d1_false_drops=int((d1_best.depth_ratio < CONFIRM_MIN_RATIO).sum()),
+                d1_depth_ratio_range=[float(d1_best.depth_ratio.min()), float(d1_best.depth_ratio.max())],
+                d5_testable=int(len(d5)), d5_false_drops=int(d5.sum()),
+                one_sided_products=int(st.one_sided.astype(bool).sum()), products_tested=int(len(st)))
+    jdump(os.path.join(P["out"], "confirm_validation_summary.json"), summ)
+    print(json.dumps(summ, indent=1))
+
+
 def _run(args):
     name, c, sector = args
     P = paths(sector)
@@ -330,7 +398,7 @@ def run_stage(name, cands, sector, procs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=list(STAGES) + ["rank", "report", "all"])
+    ap.add_argument("stage", choices=list(STAGES) + ["validate", "rank", "report", "all"])
     ap.add_argument("--sector", type=int, default=48)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--no-controls", action="store_true")
@@ -340,10 +408,12 @@ def main():
     if args.only:
         cands = cands[cands.tic.isin(args.only)]
     os.makedirs(paths(args.sector)["work"], exist_ok=True)
-    stages = list(STAGES) + ["rank", "report"] if args.stage == "all" else [args.stage]
+    stages = list(STAGES) + ["validate", "rank", "report"] if args.stage == "all" else [args.stage]
     for st in stages:
         if st in STAGES:
             run_stage(st, cands, args.sector, args.procs)
+        elif st == "validate":
+            stage_validate(args.sector)
         else:
             from phase4_report import rank, report
             (rank if st == "rank" else report)(cands, args.sector)

@@ -744,6 +744,45 @@ def local_dip_snr(t, f, t0, t14):
     return float(depth), float(depth / (sig * np.sqrt(1 / inn.sum() + 1 / use.sum())))
 
 
+STEP_STRONG = 0.75      # one side sees >= 0.75 x depth at >= STEP_SIGMA ...
+STEP_WEAK = 0.25        # ... while the other sees < 0.25 x depth: a step, not a dip
+STEP_SIGMA = 5.0
+
+
+def one_sided_check(t, f, t0, t14, depth):
+    """Is the 'dip' a flux step? Run on *undetrended* flux.
+
+    A line is fitted separately to each side (T14/2 + 1 h to T14/2 + 1 h +
+    max(T14, 6 h) before and after t0) and extrapolated to t0. A transit sits
+    below both extrapolations, even on a sloping baseline. A step (e.g. a
+    single-pixel jump or pointing change that detrending turns into a dip)
+    matches one side: the in-transit level continues the baseline on that side
+    and only the other side sees a 'depth'. Returns dict(pre, post) as fractions
+    of ``depth``, their significances, and one_sided (bool, None if unmeasurable)."""
+    dt = t - t0
+    inn = np.abs(dt) < 0.4 * t14
+    lo, hi = t14 / 2 + 1 / 24, t14 / 2 + 1 / 24 + max(t14, 6 / 24)
+    res = dict(pre=np.nan, post=np.nan, pre_sig=np.nan, post_sig=np.nan, one_sided=None)
+    if inn.sum() < 3 or not depth > 0:
+        return res
+    sig = 1.4826 * np.median(np.abs(np.diff(f))) / np.sqrt(2)
+    fin = np.median(f[inn])
+    for name, side in (("pre", (dt < -lo) & (dt > -hi)), ("post", (dt > lo) & (dt < hi))):
+        if side.sum() < 6:
+            return res
+        x = dt[side]
+        c = np.polyfit(x, f[side], 1)
+        lvl = np.polyval(c, 0)
+        se = sig * np.sqrt(1 / len(x) + x.mean() ** 2 / ((x - x.mean()) ** 2).sum())
+        err = np.hypot(se, 1.2533 * sig / np.sqrt(inn.sum())) / lvl
+        d = (lvl - fin) / lvl
+        res[name], res[name + "_sig"] = float(d / depth), float(d / err)
+    strong = [(res[s] >= STEP_STRONG and res[s + "_sig"] >= STEP_SIGMA) for s in ("pre", "post")]
+    weak = [res[s] < STEP_WEAK for s in ("pre", "post")]
+    res["one_sided"] = bool((strong[0] and weak[1]) or (strong[1] and weak[0]))
+    return res
+
+
 def pixel_confirm_check(ap_snr, lc_snr, ap_depth=None, lc_depth=None):
     """Is the dip present in the raw pixels, at the right depth?
 

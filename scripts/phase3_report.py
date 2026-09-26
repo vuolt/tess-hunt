@@ -228,6 +228,10 @@ def _disp_for(r):
     return ""
 
 
+def _s(x):
+    return x if isinstance(x, str) and x else "-"
+
+
 def _b(x):
     return None if x is None or (isinstance(x, float) and np.isnan(x)) else bool(x)
 
@@ -256,7 +260,7 @@ def check_lines(r):
          f"(need {v.PIXEL_DEPTH_RANGE[0]:g}-{v.PIXEL_DEPTH_RANGE[1]:g})"),
         ("5 Asteroids", _b(r.get("asteroid")), f"hits: {r.get('asteroid_hits') or 'none'}"),
         ("6 Catalogues", _b(r.get("catalogue")),
-         f"TOI {r.get('tois') or '-'} CTOI {r.get('ctois') or '-'} EB {r.get('eb')}"),
+         f"TOI {_s(r.get('tois'))} CTOI {_s(r.get('ctois'))} EB {r.get('eb')}"),
         ("7 TRICERATOPS", _b(r.get("fpp")),
          f"FPP {f(r.get('fpp_value'), '.3f')}  NFPP {f(r.get('nfpp_value'), '.3f')}  "
          f"P {f(r.get('p_lo'), '.0f')}-{f(r.get('p_hi'), '.0f')} d"),

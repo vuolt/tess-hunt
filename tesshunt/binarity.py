@@ -146,7 +146,7 @@ def assess(target: dict | None, nss: list, nb: pd.DataFrame, eb: pd.DataFrame,
     if not eb.empty:
         flags.append("wide_binary_catalogue")
         notes.append("El-Badry+21 wide binary: " + ", ".join(
-            f"{float(t) * 3600 if float(t) < 1 else float(t):.1f}\" ({a} AU)"
+            f"{float(t) * 3600:.0f}\" ({float(a):.0f} AU)"   # theta is in degrees
             for t, a in zip(eb.theta, eb.sepAU)))
     if not wds.empty:
         flags.append("wds")

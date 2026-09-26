@@ -200,3 +200,21 @@ def test_rank_rules():
     assert classify(_g(fpp=0.3))[0] == "maybe"                                       # S1
     assert classify(_g(rp_rj_diluted=1.9))[0] == "maybe"                             # S3
     assert classify(_g(review_notes="difference image too faint for a centroid"))[0] == "submit"
+
+
+# ---------------------------------------------------------------- step test
+
+def test_one_sided_check_transit_on_slope_is_two_sided():
+    from tesshunt import vetting as v
+    t, f = _sector(0, days=4, sigma=5e-4, transits=(2.0,), depth=5e-3, t14=0.25)
+    f = f * (1 + 4e-3 * (t - 2.0))                    # steep linear trend
+    r = v.one_sided_check(t, f, 2.0, 0.25, 5e-3)
+    assert r["one_sided"] is False and r["pre"] > 0.75 and r["post"] > 0.75
+
+
+def test_one_sided_check_flags_step():
+    from tesshunt import vetting as v
+    t, f = _sector(0, days=4, sigma=5e-4)
+    f = np.where(t > 2.0 + 0.125, f * 1.01, f)         # flux jumps up at the "egress"
+    r = v.one_sided_check(t, f, 2.0, 0.25, 5e-3)
+    assert r["one_sided"] is True and abs(r["pre"]) < 0.25 and r["post"] > 1.5

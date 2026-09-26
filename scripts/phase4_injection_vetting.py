@@ -2,7 +2,7 @@
 
     python scripts/phase4_injection_vetting.py prep     # per-star downloads (cached, polite)
     python scripts/phase4_injection_vetting.py checks   # checks 1-4 (+6) on every recovered injection
-    python scripts/phase4_injection_vetting.py sky      # check 5 (SkyBoT) for survivors of 1-4
+    python scripts/phase4_injection_vetting.py sky      # check 5 (SkyBoT) on a random subset of 1-4 survivors
     python scripts/phase4_injection_vetting.py fpp      # check 7 on an SNR-stratified subset
     python scripts/phase4_injection_vetting.py report
 
@@ -49,6 +49,9 @@ def configure(sector):
 
 configure(48)
 FPP_SUBSET = 150
+SKY_SUBSET = 400        # asteroids are independent of the injected signal, so check 5's
+                        # false-rejection rate is measured on a random subset (SkyBoT is slow
+                        # and a shared service) and applied to every trial as a factor
 SNR_BINS = [0, 7, 8, 9, 10, 12, 15, 20, 30, 50, 1e9]
 
 
@@ -193,15 +196,26 @@ def passes_1_4(res):
 
 # ---------------------------------------------------------------- check 5
 
-def sky(inj):
-    n = 0
+def sky(inj, n_max=SKY_SUBSET, seed=11):
+    todo, have = [], 0
     for r in inj.to_dict("records"):
         p = os.path.join(WORK, "checks", f"{r['key']}.json")
         if not os.path.exists(p):
             continue
         res = jload(p)
-        if not passes_1_4(res) or "asteroid" in res:
+        if not passes_1_4(res):
             continue
+        if "asteroid" in res:
+            have += 1
+        else:
+            todo.append(r)
+    rng = np.random.default_rng(seed)
+    pick = rng.permutation(len(todo))[:max(n_max - have, 0)]
+    print(f"sky: {have} already queried, {len(pick)} more of {len(todo)}")
+    n = 0
+    for r in (todo[i] for i in sorted(pick)):
+        p = os.path.join(WORK, "checks", f"{r['key']}.json")
+        res = jload(p)
         objs = v.skybot_query(r["ra"], r["dec"], res["fit"]["t0"] + 2457000.0)
         res["asteroid"] = bool(v.asteroid_check(objs, r["ra"], r["dec"],
                                                 res["fit"]["t14_h"])["passed"])
@@ -220,7 +234,7 @@ def fpp_subset(inj, n=FPP_SUBSET, seed=7):
         p = os.path.join(WORK, "checks", f"{r['key']}.json")
         if os.path.exists(p):
             res = jload(p)
-            if passes_1_4(res) and res.get("asteroid") and res.get("catalogue"):
+            if passes_1_4(res) and res.get("asteroid") is not False and res.get("catalogue"):
                 rows.append(dict(r, det_snr=res["det_snr"]))
     df = pd.DataFrame(rows)
     if df.empty:
@@ -280,24 +294,35 @@ def collect(inj):
     return pd.DataFrame(rows)
 
 
-def recall_table(df, snr_col="expected_snr"):
-    """Per SNR bin: n injected, recovered, passing 1-6, and the 1-7 estimate
-    (1-6 pass rate x FPP pass rate measured on the subset in that bin)."""
+def sky_pass_rate(df):
+    """Check 5 pass rate among 1-4 survivors, from the random SkyBoT subset."""
+    s = df[df.recovered == 1].asteroid.dropna()
+    return float(s.eq(True).mean()) if len(s) else 1.0
+
+
+def recall_table(df, snr_col="expected_snr", sky_rate=None):
+    """Per SNR bin: n injected, recovered, passing 1-6, and the 1-7 estimate.
+    Checks 1-4 and 6 are run on every trial; check 5 enters as the pass rate
+    measured on the random SkyBoT subset (sky_rate), check 7 as the pass rate
+    on the FPP subset in that bin."""
     out = []
     df = df.copy()
+    sky_rate = sky_pass_rate(df) if sky_rate is None else sky_rate
     df["bin"] = pd.cut(df[snr_col], SNR_BINS)
     for b, g in df.groupby("bin", observed=True):
         rec = g[g.recovered == 1]
-        ok16 = rec[[c for c in CHECK_ORDER[:-1]]].eq(True).all(axis=1)
+        ok_ran = rec[[c for c in CHECK_ORDER[:-1] if c != "asteroid"]].eq(True).all(axis=1)
+        ok16 = ok_ran & rec.asteroid.ne(False)
         sub = rec[ok16 & rec.fpp.notna()]
         fpp_rate = float(sub.fpp.eq(True).mean()) if len(sub) else np.nan
         out.append(dict(snr_bin=str(b), n=len(g), recovered=float((g.recovered == 1).mean()),
                         n_recovered=len(rec),
-                        vet_1_6=float(ok16.mean()) if len(rec) else np.nan,
+                        vet_1_6=float(ok_ran.mean() * sky_rate) if len(rec) else np.nan,
                         n_fpp=len(sub), fpp_pass=fpp_rate,
-                        vet_1_7=float(ok16.mean() * fpp_rate) if len(rec) and len(sub) else np.nan,
-                        **{f"pass_{c}": float(rec[c].eq(True).mean()) if len(rec) else np.nan
-                           for c in CHECK_ORDER[:-1]}))
+                        vet_1_7=float(ok_ran.mean() * sky_rate * fpp_rate) if len(rec) and len(sub)
+                        else np.nan,
+                        **{f"pass_{c}": float(rec[c].dropna().eq(True).mean())
+                           if rec[c].notna().any() else np.nan for c in CHECK_ORDER[:-1]}))
     return pd.DataFrame(out)
 
 
@@ -309,7 +334,9 @@ def report(inj):
     os.makedirs(PLOTS, exist_ok=True)
     df = collect(inj)
     df.to_csv(os.path.join(OUT, "injection_vetting.csv"), index=False, float_format="%.6g")
-    tabs = {"all": recall_table(df), "plausible": recall_table(df[df.plausible])}
+    sky_rate = sky_pass_rate(df)
+    tabs = {"all": recall_table(df, sky_rate=sky_rate),
+            "plausible": recall_table(df[df.plausible], sky_rate=sky_rate)}
     for k, t in tabs.items():
         t.to_csv(os.path.join(OUT, f"injection_vetting_recall_{k}.csv"), index=False,
                  float_format="%.3f")
@@ -325,6 +352,7 @@ def report(inj):
                                  for c in CHECK_ORDER},
         shape_box_rule_extra_fail=int((rec["shape"].eq(True) & rec.shape_strict_box.eq(False)).sum()),
         fpp_subset=int(rec.fpp.notna().sum()),
+        sky_subset=int(rec.asteroid.notna().sum()), sky_pass_rate=sky_rate,
         errors=len(os.listdir(os.path.join(WORK, "errors")))
         if os.path.exists(os.path.join(WORK, "errors")) else 0,
         recall_all=tabs["all"].to_dict("records"),

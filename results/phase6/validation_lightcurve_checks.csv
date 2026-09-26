@@ -1,0 +1,10 @@
+check,variant,planets_flagged,planets,planet_rate,fps_flagged,fps,fp_rate,unresolved_flagged,unresolved,used
+odd_even,3 sigma,56,298,0.1879,75,273,0.2747,57,269,False
+odd_even,5 sigma,18,298,0.0604,43,273,0.1575,19,269,False
+odd_even,5 sigma and >= 20 % different,10,298,0.0336,33,273,0.1209,13,269,True
+secondary,SNR >= 7,33,298,0.1107,90,273,0.3297,52,269,False
+secondary,SNR >= 7 and >= 10 % of the transit depth,25,298,0.0839,81,273,0.2967,48,269,False
+secondary,SNR >= 10 and >= 10 % of the transit depth,15,298,0.0503,64,273,0.2344,34,269,False
+centroid,3 sigma,116,298,0.3893,166,273,0.6081,94,269,False
+centroid,5 sigma,87,298,0.2919,150,273,0.5495,63,269,False
+centroid,5 sigma and source >= 1 px away,0,298,0.0000,21,273,0.0769,6,269,True

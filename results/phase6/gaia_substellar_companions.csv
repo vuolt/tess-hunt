@@ -1,0 +1,6 @@
+name,tic,group,gaia_flag,gaia_conf,gaia_substellar,gaia_evidence
+TOI 2533.01,418012030,unresolved,False,,True,Gaia NSS SB1 orbit P = 6.692 d; companion 78 M_Jup (substellar: Gaia sees the transiting object's own orbit)
+TOI 5427.01,52420398,unresolved,False,,True,Gaia NSS SB1 orbit P = 5.235 d; companion 73 M_Jup (substellar: Gaia sees the transiting object's own orbit)
+TOI 6117.01,436508469,unresolved,False,,True,Gaia NSS SB1 orbit P = 9.861 d; companion 82 M_Jup (substellar: Gaia sees the transiting object's own orbit)
+TOI 6218.01,202283090,unresolved,False,,True,Gaia NSS SB1 orbit P = 5.155 d; companion 68 M_Jup (substellar: Gaia sees the transiting object's own orbit)
+TOI 7584.01,57047535,unresolved,False,,True,Gaia NSS SB1 orbit P = 18.666 d; companion 73 M_Jup (substellar: Gaia sees the transiting object's own orbit)

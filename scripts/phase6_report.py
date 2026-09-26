@@ -268,7 +268,8 @@ def _summary(t, per, gv, var, chosen, flags, sub, lc, chance):
                      secondary="a second, shallower eclipse: the 'planet' also gives off light, so it is a star",
                      centroid="the light dims off-centre: the eclipse is on a neighbouring star")
         for k, n in by.items():
-            L.append(f"- {n} by {k.replace('_', ' ')}: {words.get(k, k)}.")
+            label = dict(gaia_orbit="the Gaia orbit check", odd_even="the odd/even check").get(k, f"the {k} check")
+            L.append(f"- {n} by {label}: {words.get(k, k)}.")
         L.append("")
         rnd = n_lc[(n_lc["sample"] == "random") & (n_lc.group == "unresolved")]
         rf = flags[flags.name.isin(rnd.name)]
@@ -279,19 +280,26 @@ def _summary(t, per, gv, var, chosen, flags, sub, lc, chance):
                      f"{share * nup:.0f} of the {nup:,} unresolved candidates with periods; only "
                      f"{len(n_lc[(n_lc['sample'] == 'random') & (n_lc.group == 'unresolved')]):,} were "
                      "examined here.\n")
-        L.append("**How reliable the flags are.** From the planets' flag rates, the number of flags that "
-                 "would fall on real planets is about ")
-        exp = []
+        exp = [f"{v[3]:.1%} by the {k.replace('_', '/')} check" for k, v in chosen.items() if v]
+        L.append("**How reliable the flags are.** Known planets were flagged " + ", ".join(exp)
+                 + f" and {g.rate['planet']:.2%} by the Gaia check. A candidate flagged only by a light-curve "
+                 "check could still be a planet, so a low-confidence flag means *look again*, not "
+                 "*false positive*.\n")
+        pl = n_lc[n_lc.group == "planet"]
         for k, v in chosen.items():
-            if v:
-                exp.append(f"{v[3]:.1%} per check for {k.replace('_', ' ')}")
-        L.append(", ".join(exp) + f", and {g.rate['planet']:.2%} for the Gaia check. So a low-confidence "
-                 "flag means *look again*, not *false positive*.\n")
+            if v and k == "odd_even":
+                hit = sorted(r["name"] for r in pl.to_dict("records") if v[2](r))
+                if hit:
+                    L.append(f"Known planets flagged by the odd/even check: {', '.join(hit)}. Some are known "
+                             "to have transit-timing variations or young, spotted host stars (e.g. TOI-1136, "
+                             "TOI-2076, TOI-451), where a fixed ephemeris catches some transits only partly. "
+                             "A candidate flagged only by this check should be checked for timing variations "
+                             "first.\n")
         L.append("## The high-confidence flags\n")
         L.append("| candidate | TIC | disposition | period (d) | checks | evidence |")
         L.append("|---|---|---|---|---|---|")
         for r in flags[flags.confidence == "high"].itertuples():
-            L.append(f"| {r.name} | {r.tic} | {r.disposition} | {r.period_d:.4f} | {r.checks} | {r.evidence} |")
+            L.append(f"| {r.name} | {r.tic} | {r.disposition} | {r.period_d:.4f} | {r.checks.replace(';', ', ')} | {r.evidence.replace('|', ';')} |")
         L.append("")
     if len(sub):
         L.append(f"**Also useful:** {len(sub)} unresolved candidates have a Gaia orbit on the transit period "

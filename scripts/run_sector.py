@@ -17,6 +17,8 @@ an interruption continues where it stopped):
   phase3-report        funnel, shortlist, vetting sheets
   phase4               other sectors, second transits, allowed periods, binarity,
                        submit / maybe / drop, CTOI summaries, follow-up sheets
+  pht-plots            light curves of the submit / maybe candidates in the style of
+                       Planet Hunters TESS, for the forum
   injection-vetting    the Phase 2 injections through all seven checks
 
 Sectors already searched are listed in results/sectors_searched.csv (rebuilt
@@ -50,6 +52,7 @@ STEPS = [
     ("phase3-fpp", ["phase3_vet.py", "fpp", "--sector", "{s}", "--procs", "{fpp_procs}"]),
     ("phase3-report", ["phase3_vet.py", "report", "--sector", "{s}"]),
     ("phase4", ["phase4.py", "all", "--sector", "{s}", "--procs", "{procs}"]),
+    ("pht-plots", ["pht_plots.py", "--sector", "{s}"]),
     ("injection-vetting", ["phase4_injection_vetting.py", "all", "--sector", "{s}",
                            "--procs", "{procs}"]),
 ]

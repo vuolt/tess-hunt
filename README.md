@@ -95,6 +95,8 @@ scripts/phase4.py        coverage | search | confirm | periods | binarity | vali
                          report | all  (validate: rules D1/D5 on known planets)
 scripts/phase4_report.py submit / maybe / drop rules, CTOI summaries, follow-up sheets
 scripts/phase4_injection_vetting.py   Phase 2 injections through all seven checks
+scripts/pht_plots.py     light curve of each submit / maybe candidate in the style of
+                         Planet Hunters TESS (plots/phase4[/sXXXX]/pht/), for the forum
 scripts/run_sector.py    everything, for any sector, in one command
 results/phase4/          followup.csv, ctoi_candidates.csv, ctoi_summaries.md,
                          injection_vetting*.csv/json, phase4_summary.json
@@ -204,11 +206,12 @@ streamlit run app/main.py
   - what orbits are still possible;
   - its status (submit / maybe / drop) and the reason.
 
-  The follow-up sheets and vetting plots are next to it. Words with a dotted
+  Next to it is the light curve drawn the way Planet Hunters TESS shows it
+  (whole sector, then a zoom on the dip), then the follow-up sheets and vetting plots. Words with a dotted
   underline show an explanation when you hover over them.
 - **Workflow.** Four steps per candidate, which can only be done in order:
-  - **a. Get feedback.** A ready-to-paste Planet Hunters TESS forum post, the key
-    plots as a zip to attach, and a link to the forum. After posting, record
+  - **a. Get feedback.** A ready-to-paste Planet Hunters TESS forum post, the
+    forum-style light-curve plot (PNG) and the key plots as a zip to attach, and a link to the forum. After posting, record
     the post link and whether the feedback was positive, negative or unclear,
     with notes.
   - **b. Prepare submission.** Unlocked only by positive feedback, or by an

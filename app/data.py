@@ -5,6 +5,7 @@ Layout (Sector 48 predates multi-sector support and uses the top-level folders):
   results/phase3[/sXXXX]/summary.json, shortlist.csv   vetting funnel, shortlist
   results/phase4[/sXXXX]/followup.csv                  submit / maybe / drop
   plots/phase4[/sXXXX]/sheets/NN_ticT_{followup,vetting}.png
+  plots/phase4[/sXXXX]/pht/ticT_pht.png                light curve in the Planet Hunters TESS style
   results/phase5/phase5_checks.csv, candidates.md      expert checks (optional)
   results/phase4/ticT_predictions.csv/.md              predicted transits (optional)
   results/sectors_searched.csv                         sectors already searched (built
@@ -125,6 +126,9 @@ def sheets(sector: int, tic: int) -> dict:
         m = sorted(glob.glob(os.path.join(d, f"*_tic{tic}_{kind}.png")))
         if m:
             out[kind] = m[0]
+    pht = path("plots", "phase4", _sub(sector), "pht", f"tic{tic}_pht.png")
+    if os.path.exists(pht):
+        out["pht"] = pht
     p5 = path("plots", "phase5", f"s{sector:04d}_{tic}.png")
     if os.path.exists(p5):
         out["phase5"] = p5

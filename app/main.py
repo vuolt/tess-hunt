@@ -205,11 +205,14 @@ def page_candidates():
                     st.rerun()
             with right:
                 pl = data.sheets(int(row["sector"]), int(row["tic"]))
+                if "pht" in pl:
+                    st.image(pl["pht"], caption="The light curve as Planet Hunters TESS shows it, "
+                                                "with a zoom on the dip")
                 if "followup" in pl:
                     st.image(pl["followup"], caption="Follow-up sheet: all TESS data and allowed orbits")
                 with st.expander("More plots"):
                     for name, p in pl.items():
-                        if name != "followup":
+                        if name not in ("pht", "followup"):
                             st.image(p, caption=name)
 
 
@@ -249,6 +252,11 @@ def page_workflow():
         post = texts.forum_post(c, row)
         st.text_area("Forum post (copy and paste)", post, height=320)
         plots = data.sheets(c["sector"], c["tic"])
+        if "pht" in plots:
+            st.image(plots["pht"], caption="Attach this one first: it looks like the light curves on the forum.")
+            with open(plots["pht"], "rb") as fh:
+                st.download_button("⬇ Light-curve plot (PNG)", fh.read(), file_name=os.path.basename(plots["pht"]),
+                                   mime="image/png", key="pht_png")
         st.download_button("⬇ Plots to attach (zip)", texts.plot_bundle(plots),
                            file_name=f"tic{c['tic']}_plots.zip", mime="application/zip",
                            on_click=lambda: (s.mark_post_prepared() if not s.post_prepared else None, save()))

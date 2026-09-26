@@ -23,7 +23,7 @@ from . import data
 RUN_DIR = data.path("work", "app_runs")
 STATE = os.path.join(RUN_DIR, "current.json")
 STEP_NAMES = ["select", "search", "phase2-report", "phase3-lc", "phase3-pixels", "phase3-fpp",
-              "phase3-report", "phase4", "injection-vetting"]
+              "phase3-report", "phase4", "pht-plots", "injection-vetting"]
 STEP_WORDS = {
     "select": "choosing the stars to search",
     "search": "searching every light curve for dips",
@@ -33,6 +33,7 @@ STEP_WORDS = {
     "phase3-fpp": "vetting: statistical false-positive test",
     "phase3-report": "writing the vetting report",
     "phase4": "follow-up: other sectors, orbits and companions",
+    "pht-plots": "drawing forum-style light curves of the best candidates",
     "injection-vetting": "measuring how many real planets the checks would keep",
 }
 

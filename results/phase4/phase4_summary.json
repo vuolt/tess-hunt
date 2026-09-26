@@ -1,0 +1,47 @@
+{
+ "candidates": 28,
+ "categories": {
+  "drop": 15,
+  "maybe": 11,
+  "submit": 2
+ },
+ "with_second_dip": 6,
+ "with_failing_dips": 6,
+ "binarity_flagged": 10,
+ "controls": [
+  {
+   "order": 29,
+   "tic": 298663873,
+   "role": "control",
+   "category": "maybe",
+   "rank_phase3": NaN,
+   "tier": "B",
+   "tmag": 8.56854,
+   "rstar": 1.62762,
+   "t0_btjd": 2611.2318707866193,
+   "depth_ppm": 2559.4258441966613,
+   "t14_h": 23.266011831598213,
+   "snr": 27.0223,
+   "fpp": 9.7699626e-15,
+   "rp_rj": 0.8012753191473168,
+   "rp_rj_diluted": 0.8012753191473168,
+   "ruwe": 0.983225,
+   "binarity_flags": "blend_1px;wds",
+   "n_sectors": 41,
+   "n_spoc2min": 40,
+   "n_tess-spoc": 1,
+   "n_qlp": 0,
+   "n_tesscut": 0,
+   "n_second_dips": 2,
+   "n_failing_dips": 1,
+   "p_floor_d": 1051.6539711421142,
+   "allowed_fraction_logP": 0.03415388157137454,
+   "joint_periods": "260.151",
+   "confirm": "spoc2min:1.55/134.1;qlp:1.88/167.5;tesscut:1.81/119.6",
+   "step": "spoc2min:+1.87/+1.95;qlp:+1.92/+1.78;tesscut:+1.99/+1.71;tess-spoc:+2.10/+1.84",
+   "reasons": "S1 review notes: neighbour inside the target pixel; S5 consistent-depth dips failing vetting in sector(s) 78",
+   "positives": "confirmed in spoc2min (depth ratio 1.55, SNR 134.1); second transit candidate(s) in sector(s) 19, 57; periods consistent with all: 260.15 d",
+   "period_summary": "all P > 1052 d allowed (longer than TESS's span around the event); 47 allowed windows below that, e.g. 259.9-260.3, 260.7-260.9, 328.1-328.2, 378.2-378.2, 384.3-385.1 d; duration implies P >= 437 d for a central circular orbit; periods consistent with the second dip(s): 260.15 d"
+  }
+ ]
+}

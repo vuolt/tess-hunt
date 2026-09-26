@@ -27,26 +27,26 @@
   },
   {
    "step": "4 Pixels",
-   "remaining": 202,
-   "removed": 301,
+   "remaining": 204,
+   "removed": 299,
    "errors": 0
   },
   {
    "step": "5 Asteroids",
-   "remaining": 201,
+   "remaining": 203,
    "removed": 1,
    "errors": 0
   },
   {
    "step": "6 Catalogues",
-   "remaining": 188,
+   "remaining": 190,
    "removed": 13,
    "errors": 0
   },
   {
    "step": "7 FPP",
    "remaining": 54,
-   "removed": 134,
+   "removed": 136,
    "errors": 0
   }
  ],
@@ -78,26 +78,26 @@
    },
    {
     "step": "4 Pixels",
-    "remaining": 83,
-    "removed": 224,
+    "remaining": 85,
+    "removed": 222,
     "errors": 0
    },
    {
     "step": "5 Asteroids",
-    "remaining": 82,
+    "remaining": 84,
     "removed": 1,
     "errors": 0
    },
    {
     "step": "6 Catalogues",
-    "remaining": 79,
+    "remaining": 81,
     "removed": 3,
     "errors": 0
    },
    {
     "step": "7 FPP",
     "remaining": 43,
-    "removed": 36,
+    "removed": 38,
     "errors": 0
    }
   ],
@@ -171,7 +171,7 @@
   },
   "neighbours": {
    "ran": 767,
-   "failed": 76
+   "failed": 62
   },
   "pixel_confirm": {
    "ran": 767,
@@ -179,7 +179,7 @@
   },
   "pixels": {
    "ran": 767,
-   "failed": 557
+   "failed": 555
   },
   "asteroid": {
    "ran": 767,
@@ -190,8 +190,8 @@
    "failed": 17
   },
   "fpp": {
-   "ran": 285,
-   "failed": 200
+   "ran": 287,
+   "failed": 202
   }
  },
  "survivors": 54,
@@ -366,8 +366,8 @@
    "ok": 771
   },
   "fpp": {
-   "not run": 2342,
-   "ok": 289
+   "not run": 2340,
+   "ok": 291
   }
  }
 }

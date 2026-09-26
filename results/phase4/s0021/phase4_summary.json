@@ -1,0 +1,12 @@
+{
+ "candidates": 42,
+ "categories": {
+  "maybe": 25,
+  "drop": 10,
+  "submit": 7
+ },
+ "with_second_dip": 7,
+ "with_failing_dips": 14,
+ "binarity_flagged": 17,
+ "controls": []
+}

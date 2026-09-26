@@ -490,6 +490,8 @@ def vetting_sheet(g, P, sector, path):
     """The Phase 3 vetting sheet, with Gaia DR3 binarity added to the check table."""
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import phase3_report as p3
+    import phase3_vet as p3v
+    p3v.configure(sector)          # phase3_report reads paths from phase3_vet's module state
     va = pd.read_csv(os.path.join(P["p3"], "vetting_all.csv"))
     row = va[va.key == g["key"]]
     if row.empty:

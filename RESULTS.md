@@ -10,6 +10,9 @@
 - [Phase 4](#phase-4-all-of-tess-on-the-28-new-candidates): every other TESS
   sector, second transits, allowed periods, Gaia binarity, vetting recall on
   injections, and a final ranking: **2 to submit as CTOIs, 11 maybe, 15 drop**.
+- [Sector 21](#sector-21-a-second-sector-chosen-for-duotransits): the whole
+  pipeline on the sector that shares the most stars with Sector 48, and a
+  comparison of the two.
 
 ## Phase 1: single-transit detection on one star (2-min data)
 
@@ -965,6 +968,114 @@ a real planet, but they did not drop it.
   second event anywhere in TESS. TIC 237109179 is the weaker of the two:
   SNR 8.7 and FPP 0.094.
 
+## Sector 21: a second sector, chosen for duotransits
+
+Reproduce with `python scripts/run_sector.py --sector 21` and
+`python scripts/compare_sectors.py --sectors 21 48`. Per-sector results are in
+the `s0021/` subfolders of `results/phaseN` and `plots/phaseN`.
+
+### Why Sector 21
+
+A long-period planet is most likely to be caught twice if it is searched in two
+sectors that watch the same stars. I compared the TESS-SPOC target lists
+against the Sector 48 sample:
+- **S21: 100,646 of the 128,486 S48 dwarfs (78 %)** also have S21 light curves;
+- **the next best:** S75 (54 %), S41 (51 %) and S22 (48 %).
+
+Many of these stars are observed again in S75 and are scheduled for S120–S128,
+so a S21 + S48 duotransit can be tested later. S21's light curves are on the
+S3 mirror.
+
+**Caveat: S21 is 30-min data.** It is Year 2 data with 30-min full-frame
+cadence, against 10-min in S48.
+
+### Search and vetting
+
+| | Sector 21 | Sector 48 |
+|---|---|---|
+| stars searched | 135,625 | 128,455 |
+| median points per star; median noise per point | 1,212; 858 ppm | 3,038; 1,418 ppm |
+| stars with dips / dips | 3,220 / 9,496 | 5,078 / 10,912 |
+| Phase 2 candidates (tier A) | 2,014 (1,239) | 2,627 (991) |
+| known TOIs among the candidates | 37 | 30 |
+| survive all seven Phase 3 checks | **63 (42 new, 21 known)** | 54 (28 new, 26 known) |
+| validation planets passing all seven checks | **13 / 26** | 18 / 26 |
+
+**The same checks lose more real planets at 30-min cadence.** On S21's own
+validation set:
+- FPP passes 18/26;
+- pixels 22/26;
+- duration 22/26.
+
+So S21's shortlist is less complete than S48's, and its pixel check is the
+first suspect for any S21-only failure (see TIC 16222047 below).
+
+**Follow-up (Phase 4):** the 42 new candidates give
+- **7 submit;**
+- **25 maybe;**
+- **10 drop.**
+
+7 of them have a second dip in another sector. The results are in
+`results/phase4/s0021/`.
+
+**Vetting recall on injected transits (S21).** This repeats the S48 test (Phase 4, section 4) on S21's own 4,000 injections:
+- 2,462 were recovered by the search and 2,458 re-detected, with no errors;
+- the table covers the 1,581 recovered injections with physically plausible durations (`injection_vetting_recall_plausible.csv`).
+
+![S21 injection vetting recall](plots/phase4/s0021/injection_vetting_recall.png)
+
+| expected SNR | detected (Phase 2) | pass checks 1–6, given detected | detected and pass 1–6 | FPP pass (subset) | detected and pass all 7 | S48, all 7 |
+|---|---|---|---|---|---|---|
+| 7–8 | 0.31 | 0.48 | 0.15 | 0.73 (n = 15) | 0.11 | 0.05 |
+| 8–9 | 0.43 | 0.32 | 0.14 | 0.64 (11) | 0.09 | 0.16 |
+| 9–10 | 0.55 | 0.65 | 0.36 | 0.77 (13) | 0.28 | 0.32 |
+| 10–12 | 0.78 | 0.61 | 0.47 | 0.87 (15) | 0.41 | 0.42 |
+| 12–15 | 0.88 | 0.70 | 0.62 | 1.00 (13) | 0.62 | 0.59 |
+| 15–20 | 0.97 | 0.84 | 0.81 | 1.00 (12) | 0.81 | 0.84 |
+| 20–30 | 0.96 | 0.81 | 0.78 | 1.00 (13) | 0.78 | 0.69 |
+| 30–50 | 0.98 | 0.86 | 0.84 | 0.70 (10) | 0.59 | 0.65 |
+| > 50 | 0.98 | 0.84 | 0.82 | 0.57 (14) | 0.47 | 0.74 |
+
+**Overall recall is similar to S48, but the losses come from different checks.**
+- **Pixel check:** at 30-min cadence it rejects 8–26 % of real (injected) on-target transits. In S48 it rejected 3–9 %. This is the same weakness the validation planets showed, and it is why a pixel-only failure in S21 (such as TIC 16222047) deserves a manual look.
+- **Shape test:** it is more lenient at low SNR (68 % pass at SNR 7–8 vs 24 % in S48). With a third of the points, a transit and a box fit about equally well.
+- **Above SNR 30:** the FPP subsets are small (10–14 trials each). As in S48, the losses there are deep injections that TRICERATOPS attributes to eclipsing binaries, not lost planets.
+
+### Stars with dips in both sectors
+
+(`results/phase4/s0021/duotransits_with_s0048.md`)
+
+| level | stars in both | expected by chance | depth and duration consistent |
+|---|---|---|---|
+| any dip | 901 | 81 | 765 |
+| Phase 2 candidates | 152 | 24 | 99 |
+| passed checks 1–3 | 67 | 1.4 | 57 |
+| shortlisted in both | **8** | 0.02 | **8** |
+
+- **All 8 stars shortlisted in both sectors are known candidates**, found
+  blind in each sector with matching depth (0.90–1.19×) and duration:
+  - TOI-1274, 1692, 3832, 4117, 5650 and 5722;
+  - CTOIs 302728777 and 99919551.
+
+  This is a strong positive control: the pipeline recovers known
+  long-period candidates as duotransits.
+- **No new candidate is shortlisted in both sectors.** Among the new ones:
+  - **TIC 16222047** (S48 new, maybe) has an S21 dip with the same depth
+    (1,815 vs 1,816 ppm) and duration (11.8 vs 11.2 h), 729.8 d earlier.
+    Both S21's vetting and Phase 4's per-sector check fail it on the pixel
+    test. At 30-min cadence that test is the least reliable (see the caveat
+    above), so this one deserves a manual look. If real, the period is
+    729.8/n days.
+  - **TIC 239198203** (S48 maybe, a 4.6 % dip) is an **eclipsing binary**.
+    S21 shows a **22 % eclipse** at BTJD 1890.98, as well as the 3.8 % dip
+    at 1879.86 that Phase 4 had matched as a "second transit". Phase 4's
+    other-sector search only counted dips of similar depth (0.5–2×), so the
+    deep eclipse was recorded but never used. Phase 5 now checks for it
+    (check 7).
+  - **The other pairs have very different depths in the two sectors**
+    (factors of 3–40). That is typical of eclipsing binaries or systematics,
+    not planets.
+
 ## Phase 6: likely false positives among existing TOIs and CTOIs
 
 Full report: [`results/phase6/summary.md`](results/phase6/summary.md);
@@ -1001,3 +1112,4 @@ table: `results/phase6/likely_false_positives.csv`.
   transit-timing variations or young, spotted hosts (TOI-1136, TOI-2076,
   TOI-451). Check candidates flagged only by odd/even for timing variations
   first.
+

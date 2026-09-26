@@ -1,0 +1,22 @@
+{
+ "planets": 26,
+ "stars": 30,
+ "known_false_positives": [
+  "159510109_1883.1200",
+  "219467837_1874.8700",
+  "233569098_1881.3000",
+  "318209162_1891.8500"
+ ],
+ "d1_testable_planets": 26,
+ "d1_false_drops": 0,
+ "d1_depth_ratio_range": [
+  0.4773205769042252,
+  1.150291341281523
+ ],
+ "d1_drops_false_positives": 0,
+ "d5_testable_planets": 26,
+ "d5_false_drops": 0,
+ "d5_drops_false_positives": 0,
+ "one_sided_products": 0,
+ "products_tested": 98
+}

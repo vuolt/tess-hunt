@@ -36,7 +36,7 @@ SERVICES = {
     "skybot": SMALL_INTERVAL, "exofop": SMALL_INTERVAL, "gaia": SMALL_INTERVAL,
     "vizier": SMALL_INTERVAL, "mast_catalog": SMALL_INTERVAL, "tesscut": SMALL_INTERVAL,
     "mast_api": SMALL_INTERVAL, "mast_files": 0.25, "exoplanet_archive": SMALL_INTERVAL,
-    "villanova": SMALL_INTERVAL,
+    "villanova": SMALL_INTERVAL, "irsa": SMALL_INTERVAL,
     "s3": None,
 }
 
@@ -194,6 +194,8 @@ def service_of(url: str) -> str:
         return "skybot"
     if "esac.esa.int" in host:
         return "gaia"
+    if "irsa.ipac.caltech.edu" in host:
+        return "irsa"
     if "cds" in host:
         return "vizier"
     if "exoplanetarchive" in host:

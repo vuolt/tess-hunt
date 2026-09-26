@@ -279,8 +279,15 @@ def _markdown(args, star, row, fit, evs, df, secs, bounds, t_start, t_end):
              f"{fit['depth'] * 1e6:.0f} ppm on a T = {star.Tmag:.1f} star.\n")
     L.append(f"The full table, including partial windows, is in "
              f"`results/phase4/tic{args.tic}_predictions.csv`.\n")
-    with open(os.path.join(OUT, f"tic{args.tic}_predictions.md"), "w") as fh:
-        fh.write("\n".join(L))
+    path = os.path.join(OUT, f"tic{args.tic}_predictions.md")
+    keep = ""
+    if os.path.exists(path):                  # keep the archival section (archival_search.py)
+        old = open(path).read()
+        a, z = "<!-- archival:start -->", "<!-- archival:end -->"
+        if a in old and z in old:
+            keep = "\n" + old[old.index(a):old.index(z) + len(z)] + "\n"
+    with open(path, "w") as fh:
+        fh.write("\n".join(L) + keep)
     print("\n".join(L))
 
 

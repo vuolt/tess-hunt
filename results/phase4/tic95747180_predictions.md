@@ -101,3 +101,54 @@ Each item below is a predicted transit where at least one site can observe ≥ 5
 The mid-time uncertainty (about 3 h) comes from having only one cycle between the TESS transits. A single ground-based detection would pin the ephemeris to minutes. The transit is deep enough for a 1 m telescope: 7447 ppm on a T = 12.6 star.
 
 The full table, including partial windows, is in `results/phase4/tic95747180_predictions.csv`.
+
+<!-- archival:start -->
+## Archival photometry: earlier transits?
+
+Produced by `python scripts/archival_search.py --tic 95747180 ...`. Plot: `plots/phase4/tic95747180_archival.png`, numbers: `results/phase4/tic95747180_archival.json`.
+
+The transit to find is 7.4 ppt deep and 4.6 h long. The fraction of time spent in transit is 0.24% for P ≈ 80.5 d and 0.47% for P ≈ 40.2 d. A survey can test a period only if it has enough points inside those windows, at a precision that makes the stacked dip significant.
+
+### Sources
+
+| source | data for this star | precision | could it detect the transit? |
+|---|---|---|---|
+| K2 | not on silicon in any campaign (C0–C19); nearest field centre C14 is 14° away | – | no data |
+| Gaia DR3 epoch photometry | not published for this source (`has_epoch_photometry` = False) | ≈ 0.14 % per visit (G = 13.0, 46 visits) | no data. If it were published, 0.11–0.22 visits would be expected in transit |
+| KELT | no source within 20″ | – | no data |
+| SuperWASP (1SWASP J104056.46+210415.1) | 9059 points | 3.5 % per point | no: the TESS transit injected at any allowed period would reach at most 4.0σ |
+| ZTF (g, r, i) | 1003 points | 1.5 % per point | no: the TESS transit injected at any allowed period would reach at most 0.7σ |
+| ASAS-SN (estimate) | not retrieved: the Sky Patrol service is not reachable from this environment | ≈ 2 % per epoch at V ≈ 13 (typical), about 3000 epochs | no: expected 0.9–1.3σ for a perfectly phased stack |
+
+### SuperWASP (1SWASP J104056.46+210415.1)
+
+- 9059 good points, BTJD -3872 to -2774, per-point scatter 3.45 % after normalisation.
+
+| hypothesis | 1σ on the mid-time in these data | points expected in transit | SNR if the TESS transit is there (injected; median / best over the P range) | depth at nominal P | P range with data | P range excluding the TESS depth | best dip | verdict |
+|---|---|---|---|---|---|---|---|---|
+| P ≈ 80.48 d | 9.9 h | 17 | 0.0 / 4.0 | no data in transit | 47% | 0% | +10.7 ppt at P = 80.4653 d (2.3σ local, 1.0σ after 17 independent trials) | not constrained |
+| P ≈ 40.24 d | 9.9 h | 34 | 0.0 / 4.0 | +3.1 ± 7.1 ppt | 58% | 0% | +10.7 ppt at P = 40.2326 d (2.3σ local, 1.0σ after 17 independent trials) | not constrained |
+
+### ZTF (g, r, i)
+
+- 1003 good points, BTJD 1203 to 3969, per-point scatter 1.49 % after normalisation.
+
+| hypothesis | 1σ on the mid-time in these data | points expected in transit | SNR if the TESS transit is there (injected; median / best over the P range) | depth at nominal P | P range with data | P range excluding the TESS depth | best dip | verdict |
+|---|---|---|---|---|---|---|---|---|
+| P ≈ 80.48 d | 2.1 h | 2 | 0.0 / 0.6 | +2.1 ± 15.1 ppt | 56% | 0% | +2.1 ppt at P = 80.4785 d (0.1σ local, 0.0σ after 3 independent trials) | not constrained |
+| P ≈ 40.24 d | 2.1 h | 4 | 0.1 / 0.7 | +2.1 ± 15.1 ppt | 56% | 0% | +2.1 ppt at P = 40.2393 d (0.1σ local, 0.0σ after 3 independent trials) | not constrained |
+
+### Conclusion
+
+**The archives neither support nor rule out either period.**
+
+- K2 never observed the star.
+- Gaia DR3 published no epoch photometry for it.
+- KELT has no light curve of it.
+- The surveys that did observe it (SuperWASP, ZTF, and ASAS-SN by estimate) are too noisy at this brightness, and too sparsely sampled inside the transit windows, to see a transit this shallow.
+
+The injection test shows this directly: the TESS transit put into their data would not reach a significant detection. The 40 d vs 80 d question has to be settled by the ground-based windows listed above.
+
+Gaia DR4 is planned to publish epoch photometry for all sources. Its precision per visit, about 0.15 % at G = 13, is enough to see this transit in a single point. However, only about 0.1–0.2 of its roughly 45 visits are expected to fall in a transit.
+
+<!-- archival:end -->

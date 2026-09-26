@@ -1,0 +1,175 @@
+{
+ "tic": 95747180,
+ "depth": 0.007446562791991024,
+ "t14_d": 0.189713028505031,
+ "tb": 2621.1344343067117,
+ "sigma_tb": 0.0032224697920804953,
+ "ta": 2540.654114374399,
+ "sigma_ta": 0.004030956115869838,
+ "hypotheses": [
+  {
+   "label": "P \u2248 80.5 d",
+   "n": 1,
+   "P": 80.4803199323128,
+   "sigma_P": 0.005160709134308943
+  },
+  {
+   "label": "P \u2248 40.2 d",
+   "n": 2,
+   "P": 40.2401599661564,
+   "sigma_P": 0.0025803545671544714
+  }
+ ],
+ "sources": [
+  {
+   "source": "K2",
+   "data": "not on silicon in any campaign (C0\u2013C19); nearest field centre C14 is 14\u00b0 away",
+   "precision": "\u2013",
+   "verdict": "no data"
+  },
+  {
+   "source": "Gaia DR3 epoch photometry",
+   "data": "not published for this source (`has_epoch_photometry` = False)",
+   "precision": "\u2248 0.14 % per visit (G = 13.0, 46 visits)",
+   "verdict": "no data. If it were published, 0.11\u20130.22 visits would be expected in transit"
+  },
+  {
+   "source": "KELT",
+   "data": "no source within 20\u2033",
+   "precision": "\u2013",
+   "verdict": "no data"
+  },
+  {
+   "source": "SuperWASP (1SWASP J104056.46+210415.1)",
+   "data": "9059 points",
+   "precision": "3.5 % per point",
+   "verdict": "no: the TESS transit injected at any allowed period would reach at most 4.0\u03c3"
+  },
+  {
+   "source": "ZTF (g, r, i)",
+   "data": "1003 points",
+   "precision": "1.5 % per point",
+   "verdict": "no: the TESS transit injected at any allowed period would reach at most 0.7\u03c3"
+  },
+  {
+   "source": "ASAS-SN (estimate)",
+   "data": "not retrieved: the Sky Patrol service is not reachable from this environment",
+   "precision": "\u2248 2 % per epoch at V \u2248 13 (typical), about 3000 epochs",
+   "verdict": "no: expected 0.9\u20131.3\u03c3 for a perfectly phased stack"
+  }
+ ],
+ "results": [
+  {
+   "name": "SuperWASP (1SWASP J104056.46+210415.1)",
+   "n_points": 9059,
+   "sigma_pt": 0.034530228486099594,
+   "mag": 13.41042,
+   "t_range": [
+    -3871.618993055541,
+    -2774.469826389104
+   ],
+   "hyps": {
+    "P \u2248 80.5 d": {
+     "P": 80.4803199323128,
+     "sigma_P": 0.005160709134308943,
+     "n_trials": 142,
+     "n_independent": 17,
+     "expected_in_transit_points": 17.083533730208796,
+     "analytic_snr": 0.8913438219077456,
+     "injected_snr": 0.0,
+     "injected_snr_max": 3.963123719391846,
+     "frac_P_detectable": 0.0,
+     "nominal_depth": NaN,
+     "nominal_err": NaN,
+     "frac_P_with_data": 0.47183098591549294,
+     "frac_P_excluded": 0.0,
+     "best_P": 80.46526207491053,
+     "best_snr": 2.3468825313238617,
+     "best_depth": 0.010700272531619315,
+     "global_sigma": 1.039491301753183,
+     "ruled_out": false,
+     "supported": false,
+     "sigma_mid_h": 9.944061593341809
+    },
+    "P \u2248 40.2 d": {
+     "P": 40.2401599661564,
+     "sigma_P": 0.0025803545671544714,
+     "n_trials": 142,
+     "n_independent": 17,
+     "expected_in_transit_points": 34.16706746041759,
+     "analytic_snr": 1.2605505216794026,
+     "injected_snr": 0.0,
+     "injected_snr_max": 3.958355219254892,
+     "frac_P_detectable": 0.0,
+     "nominal_depth": 0.0031418856949965157,
+     "nominal_err": 0.007067956247008467,
+     "frac_P_with_data": 0.5774647887323944,
+     "frac_P_excluded": 0.0,
+     "best_P": 40.23263103745526,
+     "best_snr": 2.342594339585566,
+     "best_depth": 0.010683896139204285,
+     "global_sigma": 1.032644062967431,
+     "ruled_out": false,
+     "supported": false,
+     "sigma_mid_h": 9.944061593341809
+    }
+   }
+  },
+  {
+   "name": "ZTF (g, r, i)",
+   "n_points": 1003,
+   "sigma_pt": 0.014948456038005487,
+   "mag": 13.0039973,
+   "t_range": [
+    1202.7735601509921,
+    3969.0200917324983
+   ],
+   "hyps": {
+    "P \u2248 80.5 d": {
+     "P": 80.4803199323128,
+     "sigma_P": 0.005160709134308943,
+     "n_trials": 32,
+     "n_independent": 3,
+     "expected_in_transit_points": 1.8914653197261753,
+     "analytic_snr": 0.6851074794872339,
+     "injected_snr": 0.0,
+     "injected_snr_max": 0.6301321041402653,
+     "frac_P_detectable": 0.0,
+     "nominal_depth": 0.0020819965702236765,
+     "nominal_err": 0.015099258662087372,
+     "frac_P_with_data": 0.5625,
+     "frac_P_excluded": 0.0,
+     "best_P": 80.47851524172157,
+     "best_snr": 0.13788733717446325,
+     "best_depth": 0.0020819965702236765,
+     "global_sigma": -0.9510019298818287,
+     "ruled_out": false,
+     "supported": false,
+     "sigma_mid_h": 2.1353808791050715
+    },
+    "P \u2248 40.2 d": {
+     "P": 40.2401599661564,
+     "sigma_P": 0.0025803545671544714,
+     "n_trials": 32,
+     "n_independent": 3,
+     "expected_in_transit_points": 3.7829306394523505,
+     "analytic_snr": 0.9688882891740934,
+     "injected_snr": 0.10825845755186816,
+     "injected_snr_max": 0.6648782013955127,
+     "frac_P_detectable": 0.0,
+     "nominal_depth": 0.0020819965702236765,
+     "nominal_err": 0.015113678741842747,
+     "frac_P_with_data": 0.5625,
+     "frac_P_excluded": 0.0,
+     "best_P": 40.23925762086078,
+     "best_snr": 0.13775577778159306,
+     "best_depth": 0.0020819965702236765,
+     "global_sigma": -0.951191091893196,
+     "ruled_out": false,
+     "supported": false,
+     "sigma_mid_h": 2.1353808791050715
+    }
+   }
+  }
+ ]
+}

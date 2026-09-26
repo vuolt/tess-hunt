@@ -32,6 +32,12 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
+# Run as a script, this module is "__main__"; phase3_report does `import phase3_vet`,
+# which would load a second, unconfigured copy (still pointing at Sector 48's
+# folders). Register this module under its own name so both share one state.
+if __name__ == "__main__":
+    sys.modules.setdefault("phase3_vet", sys.modules[__name__])
+
 from tesshunt import ffi, vetting as v  # noqa: E402
 from tesshunt.survey import analyse  # noqa: E402
 

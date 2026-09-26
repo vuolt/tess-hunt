@@ -109,18 +109,19 @@ def _retrying(service, fn):
 
 
 def get(url: str, service: str, data: dict | None = None, cache: bool = True,
-        timeout: int = TIMEOUT) -> bytes:
+        timeout: int = TIMEOUT, refresh: bool = False) -> bytes:
     """GET (or POST form ``data``) with disk cache, rate limit and backoff.
 
     404s are cached too (as FileNotFoundError), so a missing product is only
-    asked for once."""
+    asked for once. ``refresh`` fetches again and replaces the cached copy
+    (for bulk tables that change, e.g. the TOI list)."""
     body = urllib.parse.urlencode(data).encode() if data else None
     k = _key(url, body)
     path, miss = _cache_path(service, k, ".bin"), _cache_path(service, k, ".404")
-    if cache and os.path.exists(path):
+    if cache and not refresh and os.path.exists(path):
         with open(path, "rb") as fh:
             return fh.read()
-    if cache and os.path.exists(miss):
+    if cache and not refresh and os.path.exists(miss):
         raise FileNotFoundError(url)
 
     def fetch():
@@ -140,6 +141,15 @@ def get(url: str, service: str, data: dict | None = None, cache: bool = True,
             fh.write(out)
         os.replace(tmp, path)
     return out
+
+
+def cached_date(url: str, service: str, data: dict | None = None) -> str | None:
+    """Date (YYYY-MM-DD) the cached copy of ``url`` was downloaded, or None."""
+    body = urllib.parse.urlencode(data).encode() if data else None
+    path = _cache_path(service, _key(url, body), ".bin")
+    if not os.path.exists(path):
+        return None
+    return time.strftime("%Y-%m-%d", time.localtime(os.path.getmtime(path)))
 
 
 def get_text(url, service, data=None, cache=True) -> str:

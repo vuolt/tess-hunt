@@ -1,12 +1,13 @@
 # Phase 6: likely false positives among existing TESS candidates
 
-`python scripts/phase6.py gaia | lc | report`. Tables: `likely_false_positives.csv`, `validation_gaia.csv`, `validation_lightcurve_checks.csv`, `gaia_substellar_companions.csv`; plot: `plots/phase6/validation_rates.png`.
+`python scripts/run_fp_triage.py` (or the app's Run page). Tables: `likely_false_positives.csv`, `validation_gaia.csv`, `validation_lightcurve_checks.csv`, `gaia_substellar_companions.csv`; plot: `plots/phase6/validation_rates.png`.
 
 ## What was checked
 
 - **Candidates:** 9,615 TOIs and CTOIs without a final disposition. 8,333 of them have a period, which the checks need. The validation sets come from the same tables: 1,403 confirmed or known planets (CP, KP) and 1,410 known false positives (FP, FA).
 - **Gaia orbit check:** applied to every candidate with a period. It used 12,432 Gaia DR3 source IDs, queried in batches.
-- **Light-curve checks:** 1,090 candidates had usable TESS light curves in at least one sector. These were all the Gaia-matched candidates plus random samples of about 300 from each group.
+- **Light-curve checks:** 1,106 candidates had usable TESS light curves in at least one sector: all the Gaia-matched candidates, random samples of about 300 from each group, and any others checked in later runs. So far 506 of the 8,333 unresolved candidates with a period have been checked (466 had usable data); each is recorded in `lc_checks.csv.gz` and never checked twice.
+- **Tables:** ExoFOP TOI and CTOI lists as downloaded on 2026-09-26.
 
 ## Validation: how often each check flags known planets
 
@@ -37,7 +38,7 @@ How they were flagged (a candidate can be flagged by more than one check):
 - 43 by the odd/even check: alternate transits have different depths: two stars eclipsing at twice the period.
 - 10 by the centroid check: the light dims off-centre: the eclipse is on a neighbouring star.
 
-In the random sample of 269 unresolved candidates, 17 (6%) were flagged by a light-curve check. If the sample is representative, that is about 527 of the 8,333 unresolved candidates with periods; only 269 were examined here.
+In the random sample of 269 unresolved candidates, 17 (6%) were flagged by a light-curve check. If the sample is representative, that is about 527 of the 8,333 unresolved candidates with periods. 7,827 have not had their light curves checked yet; each later run checks more of them.
 
 **How reliable the flags are.** Known planets were flagged 3.4% by the odd/even check, 0.0% by the centroid check and 0.07% by the Gaia check. A candidate flagged only by a light-curve check could still be a planet, so a low-confidence flag means *look again*, not *false positive*.
 

@@ -33,10 +33,18 @@ PX_ARCSEC = 21.0
 
 # ------------------------------------------------------------------ tables
 
-def load_tables() -> pd.DataFrame:
-    """TOIs and CTOIs in one table (ExoFOP bulk CSVs, downloaded once, cached)."""
-    toi = pd.read_csv(io.BytesIO(net.get(EXOFOP_TOI, net.service_of(EXOFOP_TOI))), low_memory=False)
-    ctoi = pd.read_csv(io.BytesIO(net.get(EXOFOP_CTOI, net.service_of(EXOFOP_CTOI))), low_memory=False)
+def tables_date() -> str | None:
+    """When the cached TOI table was downloaded (YYYY-MM-DD)."""
+    return net.cached_date(EXOFOP_TOI, net.service_of(EXOFOP_TOI))
+
+
+def load_tables(refresh: bool = False) -> pd.DataFrame:
+    """TOIs and CTOIs in one table (ExoFOP bulk CSVs, cached; ``refresh``
+    downloads today's tables once and replaces the cached copies)."""
+    toi = pd.read_csv(io.BytesIO(net.get(EXOFOP_TOI, net.service_of(EXOFOP_TOI), refresh=refresh)),
+                      low_memory=False)
+    ctoi = pd.read_csv(io.BytesIO(net.get(EXOFOP_CTOI, net.service_of(EXOFOP_CTOI), refresh=refresh)),
+                       low_memory=False)
     disp = toi["TFOPWG Disposition"].fillna("")
     group = np.select([disp.isin(["CP", "KP"]), disp.isin(["FP", "FA"])], ["planet", "fp"], "unresolved")
     t = pd.DataFrame(dict(

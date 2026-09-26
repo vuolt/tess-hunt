@@ -56,6 +56,23 @@ def searched_sector(sector: int) -> dict | None:
     return ledger.entry(sector)
 
 
+def fp_status() -> dict:
+    """How far the false-positive check of other people's candidates has got."""
+    out = dict(checked=0, flagged=0, high=0, tables_date=None)
+    led = path("results", "phase6", "lc_checks.csv.gz")
+    if os.path.exists(led):
+        d = pd.read_csv(led, usecols=lambda c: c in ("group", "in_current_tables", "tables_date"))
+        cur = d[d.get("in_current_tables", True) == True]  # noqa: E712
+        out["checked"] = int((cur.group == "unresolved").sum())
+        if "tables_date" in d and d.tables_date.notna().any():
+            out["tables_date"] = str(d.tables_date.dropna().max())
+    fl = path("results", "phase6", "likely_false_positives.csv")
+    if os.path.exists(fl):
+        f = pd.read_csv(fl, usecols=["confidence"])
+        out["flagged"], out["high"] = len(f), int((f.confidence == "high").sum())
+    return out
+
+
 def _json(p):
     try:
         with open(p) as fh:

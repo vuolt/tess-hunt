@@ -1,6 +1,46 @@
 # tess-hunt
 Searching public TESS data for long-period exoplanets that transit only once, the ones automated pipelines tend to miss.
 
+## Quick start (no programming needed)
+
+1. **Get the project:** `git clone https://github.com/vuolt/tess-hunt.git`, or
+   download it as a ZIP from GitHub and unzip it.
+2. **Start the app:** double-click **`Start tess-hunt.command`** (macOS) or
+   **`Start tess-hunt.bat`** (Windows). The first start installs everything
+   (several minutes); after that it opens in your browser in seconds. You
+   need Python 3.10 or newer.
+3. **Run page:** pick one of two jobs.
+   - **Search a new sector for planets.** Pick a TESS sector nobody has
+     searched yet; the page lists the searched ones. It runs for 5–8 hours
+     in the background.
+   - **Check other people's candidates.** This looks for false positives
+     among the TOIs and CTOIs that nobody has confirmed or ruled out yet.
+     Each run checks the next batch (500 by default, about half an hour).
+     Tick "Download today's lists" now and then to include new
+     submissions.
+4. **When a run finishes,** the page says in plain words what it found, or
+   that nothing was found. It gives you a ready commit message and the
+   commands to paste into a terminal (or what to type into GitHub Desktop).
+   Committing matters even when nothing was found. The record of searched
+   sectors and stars (`results/sectors_searched.csv`) and of checked
+   candidates (`results/phase6/lc_checks.csv.gz`) is how the project, and
+   anyone who uses it after you, avoids doing the same work twice.
+5. **Candidates and Workflow pages:** everything about a candidate in plain
+   English, and the steps to get it looked at by the Planet Hunters TESS
+   community and submitted to ExoFOP.
+
+If you don't have permission to push to this repository, push to your own
+fork and open a pull request.
+
+The same jobs from a terminal:
+
+```
+python scripts/run_sector.py --sector 22          # search a sector
+python -m tesshunt.findings sector 22             # what it found + commit message
+python scripts/run_fp_triage.py [--refresh]       # check 500 more TOIs/CTOIs
+python -m tesshunt.findings fp                    # what it found + commit message
+```
+
 ## Phase 1: single-event detection
 
 ```
@@ -180,10 +220,19 @@ calibrated on known planets in the same sectors (`calibration.csv`).
 ## Phase 6: likely false positives among existing TOIs and CTOIs
 
 ```
-python scripts/phase6.py gaia            # TOI/CTOI tables once, Gaia DR3 orbits in batches
-python scripts/phase6.py lc --procs 2    # odd/even, secondary, centroid on S3 light curves
-python scripts/phase6.py report          # validation, flags, results/phase6/summary.md
+python scripts/run_fp_triage.py                  # all three steps, 500 new candidates
+python scripts/phase6.py gaia [--refresh]        # TOI/CTOI tables (--refresh: today's), Gaia orbits
+python scripts/phase6.py lc --all --limit 500    # odd/even, secondary, centroid on S3 light curves
+python scripts/phase6.py report                  # validation, flags, results/phase6/summary.md
 ```
+
+Every light-curve check is recorded in `results/phase6/lc_checks.csv.gz`
+(committed). A new clone restores the checks from that record instead of
+downloading the light curves again, and each run checks only candidates
+that haven't been checked yet. The validation samples (about 300 each of
+unresolved candidates, planets and known false positives) are drawn once
+and kept, even after the tables are refreshed. The TOI/CTOI tables are
+cached until `--refresh` downloads today's copies, once per run.
 
 Every check is first run on confirmed planets and known false positives from
 the same tables. A check variant that flags more than 5 % of known planets is
@@ -260,11 +309,20 @@ streamlit run app/main.py
 - **Results.** For each searched sector, the funnel from stars searched to
   dips, candidates, vetted, the new shortlist, and "worth submitting". One
   sentence per step says what it removed.
-- **Run.** Choose a sector and start the whole pipeline
-  (`scripts/run_sector.py`) in the background. There is a live progress bar and
-  a stop button. A sector takes several hours; you can close the app and come
-  back. Pressing *Start / resume* on an interrupted sector continues where it
-  stopped, because every step keeps its finished work.
+- **Run.** Two background jobs, with a live progress bar and a stop button.
+  You can close the app and come back.
+  - **Search a sector** (`scripts/run_sector.py`): the whole pipeline,
+    including the Phase 5 expert checks. It takes several hours. Pressing
+    *Start / resume* on an interrupted sector continues where it stopped,
+    and a finished sector asks before running again.
+  - **Check other people's candidates** (`scripts/run_fp_triage.py`): the
+    Phase 6 false-positive checks on the next batch of TOIs/CTOIs not yet
+    checked, optionally after downloading today's lists.
+
+  When a run finishes, the page lists what was found (candidates worth
+  submitting, strong ones held back, or new likely false positives), or
+  says nothing was found. It then gives a ready commit message with the
+  commands to save the results. The app never commits anything itself.
 - **Glossary.** Plain-English explanations of TIC, SNR, FPP, duotransit, CTOI,
   ExoFOP, TFOP and more.
 

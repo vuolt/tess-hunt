@@ -91,7 +91,8 @@ tesshunt/multisector.py  observed sectors (tess-point), best light curve per sec
                          duotransit search, exclusion maps, allowed-period scans
 tesshunt/binarity.py     Gaia DR3 RUWE / NSS / image doubling / RV scatter, co-moving
                          companions, 1-px blends, El-Badry wide binaries, WDS
-scripts/phase4.py        coverage | search | confirm | periods | binarity | rank | report | all
+scripts/phase4.py        coverage | search | confirm | periods | binarity | validate | rank |
+                         report | all  (validate: rules D1/D5 on known planets)
 scripts/phase4_report.py submit / maybe / drop rules, CTOI summaries, follow-up sheets
 scripts/phase4_injection_vetting.py   Phase 2 injections through all seven checks
 scripts/run_sector.py    everything, for any sector, in one command

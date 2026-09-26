@@ -7,6 +7,9 @@
 - [Phase 3](#phase-3-vetting-the-sector-48-candidates): seven vetting checks
   cut the 2,627 single-dip candidates to a hand-reviewable shortlist of
   **28 new candidates** (plus 26 already-known TOIs/CTOIs).
+- [Phase 4](#phase-4-all-of-tess-on-the-28-new-candidates): every other TESS
+  sector, second transits, allowed periods, Gaia binarity, vetting recall on
+  injections, and a final ranking: **2 to submit as CTOIs, 11 maybe, 15 drop**.
 
 ## Phase 1: single-transit detection on one star (2-min data)
 
@@ -601,3 +604,291 @@ the checks):
   endpoint.
 - The validation set is small (26 planets). The per-check pass rates carry
   ±10–20 % binomial uncertainty.
+
+## Phase 4: all of TESS on the 28 new candidates
+
+Reproduce with `python scripts/phase4.py all` and
+`python scripts/phase4_injection_vetting.py all`, or run the whole pipeline
+with `python scripts/run_sector.py --sector 48` (see README). The rules are
+in `scripts/phase4_report.py`. Per-candidate numbers are in
+`results/phase4/followup.csv`, and each candidate has two sheets in
+`plots/phase4/sheets/`: the Phase 3 vetting page (now with a Gaia binarity
+line) and a follow-up page (TESS coverage timeline, the S48 dip in every
+product, any second dips, allowed periods, decision).
+
+**Headline.**
+
+- **2 candidates to submit as CTOIs:** TIC 165685135 and TIC 237109179.
+  The ExoFOP-ready summaries are in `results/phase4/ctoi_summaries.md` and
+  `ctoi_candidates.csv`. **Nothing has been submitted.**
+- **11 maybe, 15 drop**, each with a reason (table below).
+- **One new duotransit:** TIC 95747180 has a clean second transit in S45.
+  Its period is 80.5 d or 40.2 d. It stays "maybe" only because its Phase 3
+  FPP is 0.28.
+- **The control recovers its period.** TOI-2180 b goes through exactly the
+  same steps. Its S19 and S57 transits are found blind and pass checks 1–4.
+  The only period consistent with both is **260.15 d** (TOI catalogue:
+  260.174 d).
+
+### 1. Other sectors and second transits
+
+Coverage comes from `tess-point`, capped at the latest sector with FFIs on
+the S3 mirror (S108). The 28 stars were observed in 272 star-sectors
+(median 6 per star, range 1–42), 244 of them outside S48. For each
+star-sector the pipeline takes the best available light curve:
+- SPOC 2-min: 15;
+- TESS-SPOC FFI: 226;
+- QLP: 24;
+- aperture photometry on a TESScut cutout: 6;
+- nothing usable: 1.
+
+`tesshunt/multisector.py` holds this logic; files come from the S3 mirror
+first.
+
+Each light curve is detrended with a window of at least 3 × T14 and at least
+1 d, with candidate-like dips masked in a second pass. It is then searched
+with a box at the candidate's own duration. A dip with SNR ≥ 5 and 0.5–2×
+the original depth is a possible second transit. It goes through checks 1–4
+(shape, duration, edge, pixels in that sector's TESScut cutout).
+
+- **Vetted second dips on 6 candidates:**
+  - TIC 239198203: S21, SNR 86;
+  - TIC 95747180: S45, SNR 19;
+  - TIC 154565237: S74, SNR 10;
+  - TIC 298092113: S14;
+  - TIC 233575173: S74;
+  - TIC 198206622: five dips in S26, S41, S56, S78 and S86.
+
+  The last three are dropped for other reasons (below).
+- **Consistent-depth dips that fail checks 1–4 on 6 stars.** These are
+  evidence of a recurring systematic on the star, and they count against
+  submission (rule S5):
+  - TIC 16222047: S21;
+  - TIC 154565237: S47 twice;
+  - TIC 252795236: S48, 3 d before the candidate;
+  - TIC 335661035: S73;
+  - TIC 233575173: S73;
+  - TIC 198206622: S15 and S75.
+
+  TOI-2180 b also has one, in S78, so this rule is conservative.
+
+### 2. Allowed periods
+
+For every sector, a transit of the candidate's depth and duration is
+**excluded** at any time where the data cover at least half of the transit
+window and the measured box depth is below both depth − 3σ and half the
+depth. The period scan (1 d to 1.05 × TESS's span around the event, with
+steps fine enough that the predicted transit moves by less than T14/8) keeps
+a period only if none of its predicted transits lands on excluded data.
+Second dips add their aliases |t₁ − t₀|/n, and only periods consistent with
+all second dips are kept.
+
+- **Without a second transit:** every period below a floor is excluded,
+  except for narrow windows. The floor is where all longer periods are
+  allowed. Its median is **758 d**, and the median allowed fraction of
+  log P is 0.24. The windows are listed in each CTOI summary and plotted in
+  `plots/phase4/periods/`.
+- **With second transits:**
+  - TIC 95747180: 80.5 d or 40.2 d.
+  - TIC 239198203: 749.1/n d. Many aliases are still allowed.
+  - TIC 154565237: 707.4/n d.
+- **The duration-based "minimum period" assumes a circular orbit.** It is
+  written that way on every sheet and is not used to exclude anything.
+  TOI-2180 b is the counter-example: its 23 h transit implies P ≥ 437 d for
+  a central circular orbit, but P = 260 d because e ≈ 0.37.
+- **The exclusion uses the S48 TESS-SPOC depth.** That depth can be too
+  shallow: TOI-2180 b is 2.6 ppt in TESS-SPOC but 1.55× deeper in SPOC
+  2-min, and 4.7 ppt in the TOI catalogue. A deeper true transit is only
+  easier to exclude, so this is conservative.
+
+### 3. Binarity (Gaia DR3)
+
+The binarity check (`tesshunt/binarity.py`) looks at:
+- Gaia DR3 `ruwe` (> 1.4);
+- `non_single_star` and `nss_two_body_orbit`;
+- `ipd_frac_multi_peak` (> 10 %, image doubling);
+- RV scatter (`rv_chisq_pvalue` < 0.001 with ≥ 10 transits);
+- co-moving Gaia neighbours within 60″;
+- Gaia neighbours within 1 TESS pixel and ΔG < 6;
+- the El-Badry et al. (2021) wide-binary catalogue;
+- the WDS.
+
+Only indicators that the host itself is multiple count against a candidate:
+RUWE, NSS, image doubling, RV variability, or a WDS pair closer than 2″ with
+Δmag < 3. Resolved wide companions are listed but do not count.
+
+**8 of 28 hosts show binarity:**
+
+| TIC | indicator |
+|---|---|
+| 142905733 | RUWE 1.75 |
+| 147971475 | RUWE 2.16 |
+| 376848623 | RUWE 3.16 |
+| 155873261 | Gaia **SB2, P = 0.68 d** |
+| 159540437 | RUWE 2.84, Gaia astrometric orbit **P = 697 ± 9 d** |
+| 159159589 | RUWE 3.88, NSS, RV amplitude 17 km/s |
+| 459793183 | WDS pair **0.40″, Δm = 0.01**: the transit is diluted about 2×, so R_p is about 1.4 R_J |
+| 198206622 | RUWE 1.60, astrometric orbit **P = 202.2 ± 1.9 d**, RV amplitude 31 km/s |
+
+The last case decides TIC 198206622. Its five second dips give a period of
+**202.66 d**, which is the Gaia orbital period. At 590 pc, an orbit Gaia
+can detect astrometrically, together with a peak-to-peak RV amplitude of
+31 km/s (K ≈ 15 km/s, about 0.4 M☉), means a stellar companion. These are
+eclipses, not transits (rule D6).
+
+A bug was found and fixed along the way. The Gaia `source_id` had been
+passed on as a float, so it was rounded. Orbit and El-Badry lookups for some
+stars silently used the wrong ID. With the fix, TIC 159540437 gained its
+697 d orbit and TIC 154565237 a co-moving companion at 1.5″.
+
+### 4. Vetting recall on injected transits
+
+INJECTION-VETTING-PLACEHOLDER
+
+### 5. Ranking
+
+**Rules.** These are in the docstring of `scripts/phase4_report.py`. Rules
+D1–D4 and S1–S5 were fixed before the ranking was run. D5 and D6 were
+added after it, when inspecting the first "submit" list turned up the two
+cases they describe. They are applied identically to every candidate.
+
+- **Drop if any of these holds:**
+  - D1: independent photometry of the same sector (SPOC 2-min or QLP)
+    should have seen the dip at SNR ≥ 5 but measures under 30 % of its
+    depth.
+  - D2: the dip is very long (> 30 h) *and* V-shaped or off-centre.
+  - D3: the host is binary *and* R_p > 2 R_J after dilution.
+  - D4: the second dips are consistent with no allowed period.
+  - D5: the "dip" is a flux step (below).
+  - D6: the second dips repeat on the host's Gaia binary orbit.
+- **Submit if none of those holds and all of these do:**
+  - FPP < 0.1 and no Phase 3 review notes;
+  - no host binarity;
+  - R_p ≤ 1.8 R_J;
+  - the dip is confirmed in independent photometry wherever that
+    photometry is sensitive enough;
+  - no recurring failing dips.
+- **Maybe** otherwise.
+
+**The step test (D5).** TIC 27068699 made the first "submit" list. It is a
+2 % dip seen in TESS-SPOC and QLP that passed every Phase 3 check. The raw
+TESScut pixels show no dip at all. The centre flux is flat at about
+810 e⁻/s through the "transit", then one pixel jumps by 14 % at the
+moment of "egress", and the total rises 4 %. The neighbouring pixel is
+unchanged, and there is no quality flag or momentum dump at that time. Both
+light-curve pipelines, and the Phase 3 local-baseline pixel check, see the
+pre-jump level as a dip.
+
+`vetting.one_sided_check` fits a line to each side separately, on
+*undetrended* flux, and extrapolates both into the transit:
+- a transit sits below both lines, even on a sloping baseline;
+- a step matches one of them.
+
+D5 drops a candidate when TESScut and every other light curve covering the
+event are one-sided. That means one side sees at least 0.75 × depth at
+≥ 5σ while the other sees less than 0.25 × depth. It drops TIC 27068699
+(one-sided in all three products) and TIC 252795236 (one-sided in both
+products covering it). TIC 252795236 is a slow decline ending in a sharp
+recovery, with a dipole difference image and a similar failing dip 3 d
+earlier.
+
+**Checked on known planets** (`python scripts/phase4.py validate`;
+`results/phase4/confirm_validation.csv`):
+- The set is the 26 Phase 3 validation planets (8 CP, 16 PC, 2 APC, on
+  25 stars). The two known false positives are counted separately, and
+  neither rule catches them either.
+- D1 drops none of the 26. All are testable, and their
+  independent-photometry depth ratios are 0.69–1.55.
+- D5 drops none of the 26. None of the 105 product measurements, including
+  those of the false positives, is one-sided.
+
+**The 28 new candidates.** Each TIC links to its follow-up sheet. "2nd"
+counts vetted second dips.
+
+| TIC | decision | T | depth (ppm) | T14 (h) | FPP | R_p (R_J) | sectors | 2nd | reason |
+|---|---|---|---|---|---|---|---|---|---|
+| [165685135](plots/phase4/sheets/01_tic165685135_followup.png) | **submit** | 11.7 | 2737 | 11.8 | 0.012 | 0.61 | 2 | 0 | clean; seen in QLP (depth ratio 0.85) and TESScut; P > 718 d or narrow windows |
+| [237109179](plots/phase4/sheets/02_tic237109179_followup.png) | **submit** | 10.5 | 1374 | 5.6 | 0.094 | 0.43 | 21 | 0 | seen in SPOC 2-min (ratio 1.11); marginal (SNR 8.7, FPP 0.094); 20 other sectors leave P > 1051 d or 90 narrow windows at 159–1047 d |
+| [239198203](plots/phase4/sheets/03_tic239198203_followup.png) | maybe | 12.4 | 45868 | 4.1 | 0.000 | 1.54 | 2 | 1 | 4.6 % deep (stellar companion?); second transit S21, P = 749.1/n d |
+| [142905733](plots/phase4/sheets/04_tic142905733_followup.png) | maybe | 12.5 | 2416 | 34.4 | 0.000 | 0.29 | 8 | 0 | 34 h dip; RUWE 1.75 |
+| [459793183](plots/phase4/sheets/05_tic459793183_followup.png) | maybe | 10.1 | 3931 | 8.6 | 0.000 | 1.40 | 4 | 0 | equal-brightness 0.40″ WDS pair: the host is unknown and R_p is about 1.4 R_J |
+| [16222047](plots/phase4/sheets/06_tic16222047_followup.png) | maybe | 11.3 | 1816 | 11.2 | 0.000 | 0.74 | 2 | 0 | similar dip in S21 fails vetting |
+| [155873261](plots/phase4/sheets/07_tic155873261_followup.png) | maybe | 10.2 | 5229 | 9.9 | 0.004 | 1.69 | 7 | 0 | host is a Gaia SB2 (P = 0.68 d) |
+| [154565237](plots/phase4/sheets/08_tic154565237_followup.png) | maybe | 10.5 | 1214 | 4.4 | 0.026 | 0.32 | 9 | 1 | second transit S74 (P = 707.4/n d), but two similar dips in S47 fail; co-moving star at 1.5″ |
+| [157264264](plots/phase4/sheets/09_tic157264264_followup.png) | maybe | 10.2 | 3547 | 5.3 | 0.116 | 1.16 | 7 | 0 | FPP 0.12; otherwise clean (QLP ratio 0.94) |
+| [159540437](plots/phase4/sheets/10_tic159540437_followup.png) | maybe | 11.6 | 4803 | 11.6 | 0.118 | 1.25 | 21 | 0 | RUWE 2.84, Gaia orbit P = 697 d; FPP 0.12 |
+| [159159589](plots/phase4/sheets/11_tic159159589_followup.png) | maybe | 11.5 | 14185 | 4.2 | 0.140 | 1.10 | 3 | 0 | RUWE 3.88, NSS, RV variable; FPP 0.14 |
+| [29235065](plots/phase4/sheets/12_tic29235065_followup.png) | maybe | 12.2 | 5021 | 18.7 | 0.227 | 1.17 | 2 | 0 | V-shaped; FPP 0.23 |
+| [95747180](plots/phase4/sheets/13_tic95747180_followup.png) | maybe | 12.6 | 8537 | 4.6 | 0.278 | 1.10 | 4 | 1 | **duotransit: S45 second transit, P = 80.5 or 40.2 d**; FPP 0.28 |
+| [376848623](plots/phase4/sheets/14_tic376848623_followup.png) | drop | 9.6 | 1002 | 42.8 | 0.000 | 1.10 | 35 | 0 | D2 (43 h, V-shaped); RUWE 3.16 |
+| [147971475](plots/phase4/sheets/15_tic147971475_followup.png) | drop | 12.4 | 2602 | 56.0 | 0.000 | 1.21 | 7 | 0 | D2 (56 h, centroid offset 0.76 px) |
+| [252795236](plots/phase4/sheets/16_tic252795236_followup.png) | drop | 12.1 | 7938 | 13.9 | 0.000 | 0.70 | 3 | 0 | D5 step in TESScut and TESS-SPOC |
+| [298092113](plots/phase4/sheets/17_tic298092113_followup.png) | drop | 11.9 | 4432 | 19.7 | 0.000 | 0.57 | 10 | 1 | D1: QLP sees 18 % of the depth (expected SNR 31) |
+| [284993804](plots/phase4/sheets/18_tic284993804_followup.png) | drop | 12.6 | 6897 | 25.7 | 0.000 | 0.94 | 6 | 0 | D1: not in QLP (expected SNR 25) |
+| [335661035](plots/phase4/sheets/19_tic335661035_followup.png) | drop | 12.9 | 9408 | 60.4 | 0.000 | 0.65 | 13 | 0 | D1 (expected SNR 56) and D2 |
+| [88704042](plots/phase4/sheets/20_tic88704042_followup.png) | drop | 7.1 | 212 | 59.7 | 0.000 | 0.15 | 2 | 0 | D2 (60 h, centroid offset at 51σ) |
+| [188506574](plots/phase4/sheets/21_tic188506574_followup.png) | drop | 11.5 | 1861 | 23.8 | 0.013 | 0.78 | 2 | 0 | D1: QLP sees 23 % (expected SNR 14) |
+| [27068699](plots/phase4/sheets/22_tic27068699_followup.png) | drop | 12.9 | 19892 | 5.6 | 0.014 | 0.92 | 4 | 0 | D5 single-pixel flux jump (above) |
+| [156372726](plots/phase4/sheets/23_tic156372726_followup.png) | drop | 12.4 | 2691 | 46.2 | 0.018 | 0.43 | 3 | 0 | D1: not in QLP (expected SNR 20) |
+| [165410329](plots/phase4/sheets/24_tic165410329_followup.png) | drop | 12.8 | 5708 | 4.9 | 0.109 | 0.47 | 1 | 0 | D1: not in QLP (expected SNR 10) |
+| [85911158](plots/phase4/sheets/25_tic85911158_followup.png) | drop | 12.8 | 4916 | 31.0 | 0.137 | 0.76 | 6 | 0 | D2 (31 h, V-shaped, centroid offset) |
+| [233575173](plots/phase4/sheets/26_tic233575173_followup.png) | drop | 12.1 | 2972 | 29.0 | 0.143 | 1.12 | 40 | 1 | D4: the S74 dip matches no allowed period; another fails in S73 |
+| [55779787](plots/phase4/sheets/27_tic55779787_followup.png) | drop | 12.5 | 4455 | 10.3 | 0.194 | 0.63 | 6 | 0 | D1: not in QLP (expected SNR 15) |
+| [198206622](plots/phase4/sheets/28_tic198206622_followup.png) | drop | 12.1 | 8836 | 7.5 | 0.362 | 1.59 | 42 | 5 | D6: dips repeat every 202.66 d, the Gaia orbital period |
+
+The control, [TOI-2180 b](plots/phase4/sheets/control_tic298663873_followup.png),
+would be a "maybe". Its Phase 3 note (a neighbour in the target pixel) and
+the failing S78 dip keep it from "submit". So these rules can hold back
+a real planet, but they did not drop it.
+
+**Two things stand out in the drops.**
+
+- **D1 does most of the work.** Seven of the 15 drops (six of them by D1
+  alone) have dips that QLP, processing the same pixels independently,
+  should have seen easily but does not. All seven had passed the Phase 3
+  pixel check. That check compares against our own simple aperture, which
+  inherits the same scattered-light structure.
+- **The remaining drops are exactly the classes Phase 3 flagged for
+  review:** very long V-shaped or off-centre dips, a binary orbit, and flux
+  steps.
+
+### Being a good citizen to the data services
+
+- **Every external call goes through `tesshunt/net.py`.** Each response is
+  cached in `work/cache/` and never fetched twice; 404s are cached too.
+- **Small services are rate-limited across all processes.** The spacing is
+  0.6 s per service, enforced with a lock file. Services covered: SkyBoT,
+  ExoFOP/Exoplanet Archive, the Gaia archive, VizieR, MAST catalogues and
+  TESScut. On 429/5xx the client backs off exponentially, and it stops
+  after 6 failures.
+- **Bulk files come from the `stpubdata` S3 mirror first:**
+  - TESS-SPOC to S81;
+  - QLP to S98;
+  - SPOC 2-min to S106.
+
+  MAST is the fallback.
+- **Catalogues are downloaded in bulk once:** the TOI list, the EB
+  catalogues and the target lists.
+- **Totals for Phase 4:**
+  - 614 files downloaded;
+  - 283 TESScut cutouts;
+  - 76 Gaia queries;
+  - 102 VizieR queries;
+  - 205 SkyBoT queries.
+- **SkyBoT load was reduced.** The injection test was cut from 1,351 queries
+  to a random 400 once it became clear this was slow for SkyBoT. Asteroids
+  are independent of the injected signal, so the subsample measures check
+  5's rejection rate just as well.
+
+### Limitations
+
+- **FPPs are from Phase 3, computed on S48 alone.** TRICERATOPS is built
+  for periodic signals, and for single transits it mostly reflects the lack
+  of a better eclipsing-binary fit. No candidate is validated.
+- **D5 and D6 were written after seeing the first ranking.** They were
+  checked against known planets, but on small numbers (27 planets).
+- **Exclusion is only as good as each sector's photometry.** Sectors with
+  only TESScut photometry (6 of 272) are noisier and exclude less.
+- **The two "submit" candidates are single transits.** Neither has a
+  second event anywhere in TESS. TIC 237109179 is the weaker of the two:
+  SNR 8.7 and FPP 0.094.

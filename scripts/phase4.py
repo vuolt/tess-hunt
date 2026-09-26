@@ -96,20 +96,21 @@ def validation_planets(sector):
     sl = pd.read_csv(os.path.join(P["p3"], "shortlist.csv"))
     va = pd.read_csv(os.path.join(P["p3"], "vetting_all.csv"))
     val = va[va.is_validation & (va.lc_status == "ok")]
-    rows = [dict(tic=int(t), role="validation", rank3=None) for t in sorted(set(val.tic))]
-    df = _with_fits(P, sl, va, rows, validation=True)
-    info = val.sort_values("snr", ascending=False).drop_duplicates("tic").set_index("tic")
-    df["toi"] = [info.tois.get(t) for t in df.tic]
-    df["tfop_disp"] = [info.toi_disp.get(t) for t in df.tic]
+    rows = [dict(tic=int(r.tic), role="validation", rank3=None, event=r.key)
+            for r in val.sort_values(["tic", "t0"]).itertuples()]
+    df = _with_fits(P, sl, va, rows)
+    info = val.set_index("key")
+    df["toi"] = [info.tois.get(k) for k in df.key]
+    df["tfop_disp"] = [info.toi_disp.get(k) for k in df.key]
     return df
 
 
-def _with_fits(P, sl, va, rows, validation=False):
+def _with_fits(P, sl, va, rows):
     out = []
     for r in rows:
         g = va[(va.tic == r["tic"]) & (va.lc_status == "ok")]
-        if validation:
-            g = g[g.is_validation]
+        if r.get("event"):                     # one specific dip (validation events)
+            g = g[g.key == r.pop("event")]
         elif r["role"] == "candidate":
             g = g[g.is_candidate]
         g = g.sort_values("snr", ascending=False)
@@ -340,12 +341,12 @@ def stage_validate(sector):
     P = paths(sector)
     rows = []
     for c in validation_planets(sector).to_dict("records"):
-        cache = os.path.join(P["work"], "validate", f"{c['tic']}.json")
+        cache = os.path.join(P["work"], "validate", f"{c['key']}.json")
         if not os.path.exists(cache):
             jdump(cache, dict(tic=c["tic"], measurements=confirm_measurements(c, sector)))
         for m in jload(cache)["measurements"]:
             st = m.get("step") or {}
-            rows.append(dict(tic=c["tic"], toi=c["toi"], tfop_disp=c["tfop_disp"],
+            rows.append(dict(tic=c["tic"], event=c["key"], toi=c["toi"], tfop_disp=c["tfop_disp"],
                              depth_ppm=round(c["depth"] * 1e6), t14_h=round(c["t14"] * 24, 1),
                              product=m["kind"], available=m.get("available"),
                              expected_snr=m.get("expected_snr"), depth_ratio=m.get("depth_ratio"),
@@ -355,17 +356,25 @@ def stage_validate(sector):
     os.makedirs(P["out"], exist_ok=True)
     df.to_csv(os.path.join(P["out"], "confirm_validation.csv"), index=False, float_format="%.4g")
     from phase4_report import CONFIRM_MIN_RATIO, CONFIRM_SNR
+    df["false_positive"] = df.tfop_disp.astype(str).str.contains("FP|FA")
     a = df[df.available.fillna(False).astype(bool)]
     d1 = a[a["product"].isin(["spoc2min", "qlp"]) & (a.expected_snr >= CONFIRM_SNR)]
-    d1_best = d1.sort_values("expected_snr").groupby("tic").tail(1)
+    d1_best = d1.sort_values("expected_snr").groupby("event").tail(1)
+    d1_drop = d1_best.set_index("event").depth_ratio < CONFIRM_MIN_RATIO
     st = a[a.one_sided.notna()]
-    d5 = st.groupby("tic").apply(lambda g: bool((g["product"] == "tesscut").any() and len(g) >= 2
-                                                and g.one_sided.astype(bool).all()))
-    summ = dict(planets=int(df.tic.nunique()),
-                d1_testable=int(d1_best.tic.nunique()),
-                d1_false_drops=int((d1_best.depth_ratio < CONFIRM_MIN_RATIO).sum()),
-                d1_depth_ratio_range=[float(d1_best.depth_ratio.min()), float(d1_best.depth_ratio.max())],
-                d5_testable=int(len(d5)), d5_false_drops=int(d5.sum()),
+    d5 = st.groupby("event").apply(lambda g: bool((g["product"] == "tesscut").any() and len(g) >= 2
+                                                  and g.one_sided.astype(bool).all()))
+    fp = set(df.event[df.false_positive])
+    pl = d1_best[~d1_best.event.isin(fp)]
+    summ = dict(planets=int(df.event.nunique() - len(fp)), stars=int(df.tic.nunique()),
+                known_false_positives=sorted(fp),
+                d1_testable_planets=int(len(pl)),
+                d1_false_drops=int(d1_drop[~d1_drop.index.isin(fp)].sum()),
+                d1_depth_ratio_range=[float(pl.depth_ratio.min()), float(pl.depth_ratio.max())],
+                d1_drops_false_positives=int(d1_drop[d1_drop.index.isin(fp)].sum()),
+                d5_testable_planets=int((~d5.index.isin(fp)).sum()),
+                d5_false_drops=int(d5[~d5.index.isin(fp)].sum()),
+                d5_drops_false_positives=int(d5[d5.index.isin(fp)].sum()),
                 one_sided_products=int(st.one_sided.astype(bool).sum()), products_tested=int(len(st)))
     jdump(os.path.join(P["out"], "confirm_validation_summary.json"), summ)
     print(json.dumps(summ, indent=1))

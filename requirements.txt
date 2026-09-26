@@ -9,3 +9,4 @@ setuptools<81  # triceratops -> pytransit still imports pkg_resources
 batman-package>=2.4
 triceratops>=1.1
 tess-point>=0.9
+K2fov>=7

@@ -138,3 +138,80 @@ All network access goes through `tesshunt/net.py`:
   failures the call raises `ServiceError` instead of retrying forever;
 - catalogue tables (ExoFOP TOIs/CTOIs, TESS EB catalogue) are downloaded once
   in bulk.
+
+## The app: explore and follow up candidates without the command line
+
+A local web app for someone with no astronomy background. It reads the
+pipeline's results and walks you through getting feedback on a candidate and
+preparing an ExoFOP submission.
+
+### Setup
+
+```
+python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app/main.py
+```
+
+The app opens in your browser at http://localhost:8501.
+
+### Pages
+
+- **Candidates.** One card per shortlisted candidate, in plain words:
+  - what kind of star it is, and how far away (if the Phase 5 checks have run);
+  - how deep and how long the dip is, and how big the object would be compared
+    with Earth, Neptune and Jupiter;
+  - what orbits are still possible;
+  - its status (submit / maybe / drop) and the reason.
+
+  The follow-up sheets and vetting plots are next to it. Words with a dotted
+  underline show an explanation when you hover over them.
+- **Workflow.** Four steps per candidate, which can only be done in order:
+  - **a. Get feedback.** A ready-to-paste Planet Hunters TESS forum post, the key
+    plots as a zip to attach, and a link to the forum. After posting, record
+    the post link and whether the feedback was positive, negative or unclear,
+    with notes.
+  - **b. Prepare submission.** Unlocked only by positive feedback, or by an
+    "override anyway" with a typed reason. It gives:
+    - the ExoFOP CTOI fields to copy (TIC, epoch, period constraints, depth,
+      duration, size, vetting summary);
+    - a file in ExoFOP's planet-parameter bulk-upload format;
+    - links to ExoFOP's guidelines, its upload-access request page and its
+      bulk-upload page.
+
+    **ExoFOP accepts community candidates only once they are published in a
+    refereed journal**, and uploading needs approved access. The app says so,
+    and asks for the paper URL and your ExoFOP data tag.
+  - **c. Record submission.** The date you submitted, and the CTOI number once
+    ExoFOP assigns one (you can add it later).
+  - **d. Follow-up.** Predicted future transits, where a period is known
+    (for example TIC 95747180), and whether TESS will observe the star again,
+    from TESS's published pointing plan.
+- **Results.** For each searched sector, the funnel from stars searched to
+  dips, candidates, vetted, the new shortlist, and "worth submitting". One
+  sentence per step says what it removed.
+- **Run.** Choose a sector and start the whole pipeline
+  (`scripts/run_sector.py`) in the background. There is a live progress bar and
+  a stop button. A sector takes several hours; you can close the app and come
+  back. Pressing *Start / resume* on an interrupted sector continues where it
+  stopped, because every step keeps its finished work.
+- **Glossary.** Plain-English explanations of TIC, SNR, FPP, duotransit, CTOI,
+  ExoFOP, TFOP and more.
+
+### What the app does and does not do
+
+- It **never logs in to or submits anything to an external website.** You post
+  on the forum and upload to ExoFOP yourself, using the text and files it
+  prepares.
+- It **only reads** `results/` and `plots/`, and never changes results or
+  pipeline code. A test checks this (`tests/test_app_ui.py`).
+- It writes only:
+  - `app/workflow_status.json`, your workflow progress, which you can commit if
+    you want to keep it in the repository;
+  - `work/app_runs/`, the log of a search started from the Run page, in the
+    git-ignored scratch area;
+  - the pipeline's own outputs, but only while a search you started is running.
+- Tests: `pytest tests/test_app_workflow.py tests/test_app_ui.py`. They cover
+  the step order, the unlock and override rules, saving and loading the status
+  file, run-log parsing, start and stop, the ExoFOP file format, and a
+  click-through of the whole workflow.

@@ -964,3 +964,40 @@ a real planet, but they did not drop it.
 - **The two "submit" candidates are single transits.** Neither has a
   second event anywhere in TESS. TIC 237109179 is the weaker of the two:
   SNR 8.7 and FPP 0.094.
+
+## Phase 6: likely false positives among existing TOIs and CTOIs
+
+Full report: [`results/phase6/summary.md`](results/phase6/summary.md);
+table: `results/phase6/likely_false_positives.csv`.
+
+- **Scope.** 9,615 TOIs and CTOIs have no final disposition; 8,333 of them
+  have a period. Validation sets from the same tables: 1,403 confirmed/known
+  planets and 1,410 known false positives.
+- **Gaia orbit check** (Gaia DR3 two-body orbits and eclipsing binaries on
+  the transit period, or 2×, 3×, ½, ⅓ of it, with a companion of at least
+  0.08 M☉). It flags 1 of 1,403 planets and 68 of 1,410 known false
+  positives. Shuffling Gaia periods among stars gives 4.7 ± 2.1 chance
+  matches.
+- **Light-curve checks** on all Gaia-matched candidates plus about 300
+  random candidates per group, across every sector on the S3 mirror
+  (1,090 had usable data). Kept variants:
+  - odd/even: 5σ and ≥ 20 % different (3.4 % of planets, 12.1 % of known
+    FPs);
+  - centroid: 5σ and a source ≥ 1 px away (0 % of planets, 7.7 % of known
+    FPs).
+
+  The secondary-eclipse scan was dropped: even its strictest variant flags
+  5 % of planets. Hot Jupiters show real occultations and phase curves.
+- **Result.** 198 unresolved candidates are flagged: 175 high, 14 medium and
+  9 low confidence. 181 flags come from Gaia orbits (companion masses 0.09–1.7 M☉, median
+  0.3 M☉), 43 from odd/even depths and 10 from centroid shifts.
+  In the random sample, 6 % of unresolved candidates carry a light-curve
+  flag, about 500 of the 8,333 if the sample is representative.
+- **Not false positives:** 5 unresolved TOIs have a Gaia orbit on the transit
+  period with a companion of 68–82 M_Jup. Gaia is probably seeing the
+  transiting object itself, a brown dwarf or one of the lowest-mass stars
+  (`gaia_substellar_companions.csv`).
+- **Caveat.** Several known planets flagged by the odd/even check have
+  transit-timing variations or young, spotted hosts (TOI-1136, TOI-2076,
+  TOI-451). Check candidates flagged only by odd/even for timing variations
+  first.

@@ -73,7 +73,7 @@ def gaia_flags(m):
             elif np.isfinite(r.m2):
                 sub = True
                 ev.append(f"{r.source} orbit P = {r.gaia_period:.3f} d{k}; companion {r.m2 * 1047.6:.0f} M_Jup "
-                          "(substellar: Gaia sees the transiting object's own orbit)")
+                          "(below 0.08 M_sun: Gaia may see the transiting object's own orbit)")
             else:
                 ev.append(f"{r.source} orbit P = {r.gaia_period:.3f} d{k}; no mass estimate")
                 if not flag:
@@ -303,8 +303,9 @@ def _summary(t, per, gv, var, chosen, flags, sub, lc, chance):
         L.append("")
     if len(sub):
         L.append(f"**Also useful:** {len(sub)} unresolved candidates have a Gaia orbit on the transit period "
-                 "with a *substellar* companion. Gaia may be seeing the transiting object itself (a brown "
-                 "dwarf or massive planet): `gaia_substellar_companions.csv`.\n")
+                 "with a companion below 0.08 M_sun. Gaia may be seeing the transiting object itself: a massive "
+                 "planet, a brown dwarf or, near 75-80 M_Jup, one of the lowest-mass stars "
+                 "(`gaia_substellar_companions.csv`).\n")
     L.append("## Caveats\n")
     L.append("- A flag is evidence, not a verdict. TFOPWG makes dispositions from all the data, including "
              "follow-up observations that these checks don't use.")

@@ -139,6 +139,18 @@ All network access goes through `tesshunt/net.py`:
 - catalogue tables (ExoFOP TOIs/CTOIs, TESS EB catalogue) are downloaded once
   in bulk.
 
+## Phase 6: likely false positives among existing TOIs and CTOIs
+
+```
+python scripts/phase6.py gaia            # TOI/CTOI tables once, Gaia DR3 orbits in batches
+python scripts/phase6.py lc --procs 2    # odd/even, secondary, centroid on S3 light curves
+python scripts/phase6.py report          # validation, flags, results/phase6/summary.md
+```
+
+Every check is first run on confirmed planets and known false positives from
+the same tables. A check variant that flags more than 5 % of known planets is
+not used (2 % preferred). Results: `results/phase6/`.
+
 ## The app: explore and follow up candidates without the command line
 
 A local web app for someone with no astronomy background. It reads the

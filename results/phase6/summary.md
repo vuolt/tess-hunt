@@ -223,7 +223,7 @@ Known planets flagged by the odd/even check: TOI 1136.03, TOI 2076.01, TOI 2207.
 | TOI 924.01 | 382068562 | PC | 12.1273 | gaia_orbit | Gaia NSS SB1 orbit P = 12.122 d; companion 0.29 M_sun (SB1 mass function (sin i = 1)) |
 | TOI 948.01 | 146438872 | APC | 12.7009 | gaia_orbit | Gaia NSS SB1 orbit P = 12.711 d; companion 0.45 M_sun (SB1 mass function (sin i = 1)) |
 
-**Also useful:** 5 unresolved candidates have a Gaia orbit on the transit period with a *substellar* companion. Gaia may be seeing the transiting object itself (a brown dwarf or massive planet): `gaia_substellar_companions.csv`.
+**Also useful:** 5 unresolved candidates have a Gaia orbit on the transit period with a companion below 0.08 M_sun. Gaia may be seeing the transiting object itself: a massive planet, a brown dwarf or, near 75-80 M_Jup, one of the lowest-mass stars (`gaia_substellar_companions.csv`).
 
 ## Caveats
 

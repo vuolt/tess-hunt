@@ -7,6 +7,8 @@ Layout (Sector 48 predates multi-sector support and uses the top-level folders):
   plots/phase4[/sXXXX]/sheets/NN_ticT_{followup,vetting}.png
   results/phase5/phase5_checks.csv, candidates.md      expert checks (optional)
   results/phase4/ticT_predictions.csv/.md              predicted transits (optional)
+  results/sectors_searched.csv                         sectors already searched (built
+                                                       from the files above; not written here)
 """
 
 from __future__ import annotations
@@ -40,6 +42,17 @@ def sectors() -> list[int]:
         if m:
             out.append(int(m.group(1)))
     return sorted(out)
+
+
+def searched() -> pd.DataFrame:
+    """Sectors already searched, read from the committed results (never written here)."""
+    from tesshunt import ledger
+    return ledger.rebuild(write=False)
+
+
+def searched_sector(sector: int) -> dict | None:
+    from tesshunt import ledger
+    return ledger.entry(sector)
 
 
 def _json(p):

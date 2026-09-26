@@ -66,9 +66,10 @@ def current() -> dict | None:
     return st
 
 
-def start(sector: int, procs: int = 3, skip_injection: bool = False, _cmd: list | None = None) -> dict:
-    """Start run_sector.py in its own process group (``_cmd`` replaces the
-    command in tests)."""
+def start(sector: int, procs: int = 3, skip_injection: bool = False, force: bool = False,
+          _cmd: list | None = None) -> dict:
+    """Start run_sector.py in its own process group (``force`` reruns a sector
+    that was already searched; ``_cmd`` replaces the command in tests)."""
     st = current()
     if st and st["running"]:
         raise RuntimeError(f"A run for Sector {st['sector']} is already going.")
@@ -78,6 +79,8 @@ def start(sector: int, procs: int = 3, skip_injection: bool = False, _cmd: list 
            "--procs", str(int(procs))]
     if skip_injection:
         cmd += ["--skip", "injection-vetting"]
+    if force:
+        cmd += ["--force"]
     if _cmd:
         cmd = _cmd
     with open(log, "a") as fh:

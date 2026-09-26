@@ -110,12 +110,33 @@ python scripts/run_sector.py --sector 49              # select -> search -> vet 
 python scripts/run_sector.py --sector 49 --from phase3-lc
 python scripts/run_sector.py --sector 49 --skip injection-vetting
 python scripts/run_sector.py --sector 49 --dry-run    # list the steps
+python scripts/run_sector.py --sector 48 --force      # a sector already searched, again
 ```
 
 Every step caches its work and skips what is done, so rerunning the command after
 an interruption continues where it stopped. Outputs for sectors other than 48 go
 to `sXXXX/` subfolders of `results/phaseN`, `plots/phaseN` and `work/phaseN`
 (Sector 48 predates this and uses the top-level folders).
+
+### Sectors and stars already searched
+
+`results/sectors_searched.csv` lists every sector searched so far, how far it
+got (phase2 / phase3 / phase4) and its headline numbers. It is rebuilt from the
+committed results at the end of every run (or with `python -m tesshunt.ledger`),
+so it always matches them.
+
+- **Finished sector:** `run_sector.py` prints what was found and stops.
+  `--force` runs it again; `--from STEP` redoes later steps.
+- **Stars:** `results/phase2/sXXXX_stars.csv.gz` lists every star searched
+  in that sector. On a fresh clone, the search copies those stars and their
+  dips into the local database instead of downloading their light curves
+  again. Stars that failed with an error are retried. `--search-again` on
+  `phase2.py search` turns this off.
+- **Other sectors:** a star searched in one sector is still searched in
+  another, because each sector is new data. The search prints how many
+  such stars there are.
+- **The app's Run page** shows the same list and warns before rerunning a
+  finished sector.
 
 Rough cost for a sector of ~130k stars on 4 cores: selection a few minutes, the
 search ~2 h when TESS-SPOC light curves are on the S3 mirror (S1-S81 at the time

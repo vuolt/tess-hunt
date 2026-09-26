@@ -94,70 +94,128 @@ def show_card(c: dict, compact: bool = False):
 # ------------------------------------------------------------------ pages
 
 def page_run():
-    st.header("Run a search")
-    md(f"Search one {T('TESS')} {T('sector')} for single {T('transit', 'transits')}: select the stars, "
-       "search every light curve, vet the dips and follow up the best. A full sector takes several "
-       "hours and runs in the background, so you can close this page and come back.")
+    st.header("Run")
+    md("Two kinds of run, both in the background: you can close this page and come back. When a run "
+       "finishes, this page says in plain words what it found (or that nothing was found) and gives "
+       "you a ready-made message to save the results. The app itself never commits or uploads anything.")
     cur = runner.current()
     running = bool(cur and cur["running"])
-    c1, c2, c3 = st.columns([1, 1, 2])
-    sector = c1.number_input("Sector", 1, 200, value=int(cur["sector"]) if cur else 49, step=1,
-                             disabled=running)
-    procs = c2.number_input("CPU cores to use", 1, os.cpu_count() or 4,
-                            value=min(3, os.cpu_count() or 3), disabled=running)
-    skip = c3.checkbox("Skip the final sensitivity test (saves ~1–2 h)", value=False, disabled=running)
-    done = data.searched_sector(int(sector))
-    finished = bool(done and done["stage"] == "phase4")
-    force = False
-    if done:
-        from tesshunt import ledger
-        st.warning(ledger.describe(done) + (" Its results are on the Results and Candidates pages."
-                                            if finished else " Starting it again resumes the run."))
-        if finished:
-            force = st.checkbox("Run this sector again anyway", value=False, disabled=running,
-                                help="Stars already searched are still not downloaded or searched again; "
-                                     "the later steps are redone.")
-    b1, b2 = st.columns(2)
-    if b1.button("▶ Start / resume", disabled=running or (finished and not force), type="primary",
-                 help="Starting a sector that was interrupted continues where it stopped: every step "
-                      "keeps its finished work."):
-        try:
-            runner.start(int(sector), int(procs), skip, force=force)
-            st.success(f"Started Sector {int(sector)}.")
-            st.rerun()
-        except RuntimeError as e:
-            st.error(str(e))
-    if b2.button("■ Stop", disabled=not running):
+    procs_max = os.cpu_count() or 4
+    t1, t2 = st.tabs(["🔭 Search a new sector for planets", "🕵️ Check other people's candidates"])
+    with t1:
+        md(f"Search one {T('TESS')} {T('sector')} for single {T('transit', 'transits')}: select the "
+           "stars, search every light curve, vet the dips, follow up the best and run the expert "
+           "checks. A full sector takes 5–8 hours.")
+        searched = data.searched()
+        if len(searched):
+            md("Already searched: " + ", ".join(f"Sector {int(x)}" for x in searched.sector) + ".")
+        c1, c2, c3 = st.columns([1, 1, 2])
+        sector = c1.number_input("Sector", 1, 200, value=int(cur["sector"]) if cur and cur.get("sector")
+                                 else 49, step=1, disabled=running)
+        procs = c2.number_input("CPU cores to use", 1, procs_max, value=min(3, procs_max), disabled=running)
+        skip = c3.checkbox("Skip the final sensitivity test (saves ~1–2 h)", value=False, disabled=running)
+        done = data.searched_sector(int(sector))
+        finished = bool(done and done["stage"] == "phase4")
+        force = False
+        if done:
+            from tesshunt import ledger
+            st.warning(ledger.describe(done) + (" Its results are on the Results and Candidates pages."
+                                                if finished else " Starting it again resumes the run."))
+            if finished:
+                force = st.checkbox("Run this sector again anyway", value=False, disabled=running,
+                                    help="Stars already searched are still not downloaded or searched "
+                                         "again; the later steps are redone.")
+        if st.button("▶ Start / resume the search", disabled=running or (finished and not force),
+                     type="primary", key="start_sector",
+                     help="Starting a sector that was interrupted continues where it stopped: every step "
+                          "keeps its finished work."):
+            try:
+                runner.start(int(sector), int(procs), skip, force=force)
+                st.success(f"Started Sector {int(sector)}.")
+                st.rerun()
+            except RuntimeError as e:
+                st.error(str(e))
+    with t2:
+        fs = data.fp_status()
+        md(f"Other people have submitted thousands of {T('TOI', 'TOIs')} and {T('CTOI', 'CTOIs')} that "
+           "nobody has confirmed or ruled out yet. This check looks for signs that one is really two "
+           "stars eclipsing each other: Gaia sees a companion star on the same period, alternate dips "
+           "have different depths, or the dimming is off-centre. Every candidate checked is recorded, "
+           "so nothing is checked twice, by you or anyone else.")
+        md(f"So far: **{fs['checked']:,}** candidates' light curves checked, **{fs['flagged']}** flagged "
+           f"as likely false positives ({fs['high']} with high confidence)."
+           + (f" Lists downloaded on {fs['tables_date']}." if fs["tables_date"] else ""))
+        c1, c2, c3 = st.columns([1, 1, 2])
+        limit = c1.number_input("Candidates to check this run", 0, 20000, value=500, step=100,
+                                disabled=running, help="0 = every candidate not checked yet. "
+                                "About 15 per minute with 2 cores.")
+        fprocs = c2.number_input("CPU cores to use ", 1, procs_max, value=min(2, procs_max), disabled=running)
+        refresh = c3.checkbox("Download today's TOI and CTOI lists first", value=False, disabled=running,
+                              help="Includes candidates submitted since the last download. The lists "
+                                   "are downloaded once per run.")
+        est = "all remaining candidates: several hours" if not limit else f"about {max(1, limit // 15)} min"
+        st.caption(f"Estimated time: {est}.")
+        if st.button("▶ Start the check", disabled=running, type="primary", key="start_fp"):
+            try:
+                runner.start_fp(int(fprocs), refresh, int(limit))
+                st.success("Started the false-positive check.")
+                st.rerun()
+            except RuntimeError as e:
+                st.error(str(e))
+    if st.button("■ Stop the current run", disabled=not running, key="stop"):
         runner.stop()
-        st.warning("Stopped. Press Start / resume later to continue from where it stopped.")
+        st.warning("Stopped. Start it again later to continue from where it stopped.")
         st.rerun()
     live_status()
-    led = data.searched()
-    if len(led):
-        with st.expander(f"Sectors already searched ({len(led)})"):
-            st.dataframe(led.rename(columns=lambda c: c.replace("_", " ")), hide_index=True)
 
 
 @st.fragment(run_every=5)
 def live_status():
     cur = runner.current()
     if not cur:
-        st.info("No search has been started from the app yet.")
+        st.info("Nothing has been started from the app yet.")
         return
     prog = runner.progress(runner.log_text(cur["log"]), cur.get("steps"))
     state = ("running" if cur["running"] else
              "finished" if prog["finished"] else
              f"failed at '{prog['failed']}'" if prog["failed"] else "stopped")
-    st.subheader(f"Sector {cur['sector']}: {state}")
+    st.subheader(f"{runner.label(cur)}: {state}")
     st.progress(prog["overall"], text=f"{prog['overall']:.0%} of all steps")
-    if prog["current"]:
+    if prog["current"] and cur["running"]:
         frac = f" ({prog['fraction']:.0%})" if prog["fraction"] is not None else ""
         st.write(f"Now: **{runner.STEP_WORDS.get(prog['current'], prog['current'])}**{frac}")
     for s in cur.get("steps") or runner.STEP_NAMES:
         mark = "✅" if s in prog["done"] else ("⏳" if s == prog["current"] else "·")
-        st.write(f"{mark} {runner.STEP_WORDS[s]}")
+        st.write(f"{mark} {runner.STEP_WORDS.get(s, s)}")
     with st.expander("Log (last lines)"):
         st.code(runner.tail(cur["log"], 20) or "(empty)")
+    if not cur["running"] and prog["finished"]:
+        show_findings(cur)
+
+
+def show_findings(cur):
+    from tesshunt import findings
+    f = findings.fp_findings() if cur.get("kind") == "fp" else findings.sector_findings(int(cur["sector"]))
+    st.subheader("What this run found")
+    if not f["done"]:
+        st.info(f["text"])
+        return
+    (st.success if f["found"] else st.info)(f["title"])
+    st.markdown(f["text"])
+    st.subheader("Save the results")
+    if not f["files"]:
+        st.write("Nothing new to save: every result file is already committed.")
+        return
+    md(f"{len(f['files'])} result files are new or changed. Save them to the project's history "
+       "(the app does not do this itself). **In a terminal**, in the project folder, paste:")
+    st.code(findings.commit_commands(f["title"], f["body"]), language="bash")
+    with st.expander("Using GitHub Desktop instead"):
+        md("Tick the changed files under `results/` and `plots/`, paste this as the **summary**:")
+        st.code(f["title"], language=None)
+        md("and this as the **description**, then *Commit* and *Push origin*:")
+        st.code(f["body"], language=None)
+    with st.expander(f"Files to save ({len(f['files'])})"):
+        st.code("\n".join(f["files"][:200]) + ("\n..." if len(f["files"]) > 200 else ""), language=None)
 
 
 def page_results():

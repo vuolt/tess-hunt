@@ -4,6 +4,7 @@
     python scripts/run_sector.py --sector 49 --from phase3-lc     # resume from a step
     python scripts/run_sector.py --sector 49 --skip injection-vetting
     python scripts/run_sector.py --sector 48 --force               # run a searched sector again
+    python -m tesshunt.findings sector 49                          # what was found + commit message
 
 Steps (each is resumable and caches its work, so rerunning the command after
 an interruption continues where it stopped):
@@ -19,6 +20,10 @@ an interruption continues where it stopped):
                        submit / maybe / drop, CTOI summaries, follow-up sheets
   pht-plots            light curves of the submit / maybe candidates in the style of
                        Planet Hunters TESS, for the forum
+  expert-checks        Phase 5 on every searched sector's submit / maybe candidates
+                       (cached, so earlier sectors cost little): aperture test, GP,
+                       Gaia star / binarity / variability, density-prior fit
+  expert-report        verdicts, updated ranking and CTOI summaries (results/phase5)
   injection-vetting    the Phase 2 injections through all seven checks
 
 Sectors already searched are listed in results/sectors_searched.csv (rebuilt
@@ -53,6 +58,8 @@ STEPS = [
     ("phase3-report", ["phase3_vet.py", "report", "--sector", "{s}"]),
     ("phase4", ["phase4.py", "all", "--sector", "{s}", "--procs", "{procs}"]),
     ("pht-plots", ["pht_plots.py", "--sector", "{s}"]),
+    ("expert-checks", ["phase5.py", "run", "--all-sectors", "--procs", "{fpp_procs}"]),
+    ("expert-report", ["phase5.py", "report"]),
     ("injection-vetting", ["phase4_injection_vetting.py", "all", "--sector", "{s}",
                            "--procs", "{procs}"]),
 ]

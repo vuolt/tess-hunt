@@ -23,8 +23,6 @@ Confidence:
   low     one light-curve check just beyond its threshold
 """
 
-import glob
-import json
 import os
 import sys
 
@@ -45,11 +43,14 @@ def _load():
     m = pd.read_csv(os.path.join(W, "gaia_matches.csv"))
     nss = pd.read_csv(os.path.join(W, "nss.csv"))
     eb = pd.read_csv(os.path.join(W, "gaia_eb.csv"))
-    lc = []
-    for p in glob.glob(os.path.join(W, "lc", "*.json")):
-        with open(p) as fh:
-            lc.append(json.load(fh))
-    lc = pd.DataFrame(lc)
+    p6.seed_from_ledger()
+    lc = pd.DataFrame(list(p6.done_checks().values()))
+    if len(lc):
+        # use today's disposition (a candidate may have been confirmed or refuted since its check)
+        grp = dict(zip(t.name, t.group))
+        lc["group_at_check"] = lc.group
+        lc = lc[lc.name.isin(grp)].copy()
+        lc["group"] = lc.name.map(grp)
     return t, m, nss, eb, lc
 
 
@@ -192,6 +193,8 @@ def report():
     sub.to_csv(os.path.join(p6.OUT, "gaia_substellar_companions.csv"), index=False)
     _plot(var, gv)
     _summary(t, per, gv, var, chosen, flags, sub, lc, chance)
+    n = p6.write_ledger(current_names=set(t.name))
+    print(f"{n} light-curve checks recorded in {os.path.relpath(p6.LEDGER, p6.ROOT)}")
     print(open(os.path.join(p6.OUT, "summary.md")).read()[:6000])
 
 
@@ -220,7 +223,7 @@ def _plot(var, gv):
 
 def _summary(t, per, gv, var, chosen, flags, sub, lc, chance):
     L = ["# Phase 6: likely false positives among existing TESS candidates\n",
-         "`python scripts/phase6.py gaia | lc | report`. Tables: `likely_false_positives.csv`, "
+         "`python scripts/run_fp_triage.py` (or the app's Run page). Tables: `likely_false_positives.csv`, "
          "`validation_gaia.csv`, `validation_lightcurve_checks.csv`, `gaia_substellar_companions.csv`; "
          "plot: `plots/phase6/validation_rates.png`.\n"]
     nu = int((t.group == "unresolved").sum())
@@ -233,9 +236,17 @@ def _summary(t, per, gv, var, chosen, flags, sub, lc, chance):
     L.append("- **Gaia orbit check:** applied to every candidate with a period. It used "
              f"{t.gaia_id.notna().sum():,} Gaia DR3 source IDs, queried in batches.")
     n_lc = lc[lc.n_events.fillna(0) > 0]
+    lc_unres = lc[lc.group == "unresolved"] if len(lc) else lc
+    lc_unres_data = n_lc[n_lc.group == "unresolved"]
+    tdate = p6.fp.tables_date()
     L.append(f"- **Light-curve checks:** {len(n_lc):,} candidates had usable TESS light curves in at "
-             "least one sector. These were all the Gaia-matched candidates plus random samples of "
-             f"about {p6.SAMPLE} from each group.")
+             "least one sector: all the Gaia-matched candidates, random samples of about "
+             f"{p6.SAMPLE} from each group, and any others checked in later runs. So far "
+             f"{len(lc_unres):,} of the {nup:,} unresolved candidates with a period have been checked "
+             f"({len(lc_unres_data):,} had usable data); each is recorded in `lc_checks.csv.gz` and "
+             "never checked twice.")
+    if tdate:
+        L.append(f"- **Tables:** ExoFOP TOI and CTOI lists as downloaded on {tdate}.")
     L.append("")
     L.append("## Validation: how often each check flags known planets\n")
     L.append("| check | planets flagged | known false positives flagged | used? |")
@@ -277,9 +288,9 @@ def _summary(t, per, gv, var, chosen, flags, sub, lc, chance):
             share = len(rf) / len(rnd)
             L.append(f"In the random sample of {len(rnd)} unresolved candidates, {len(rf)} ({share:.0%}) were "
                      "flagged by a light-curve check. If the sample is representative, that is about "
-                     f"{share * nup:.0f} of the {nup:,} unresolved candidates with periods; only "
-                     f"{len(n_lc[(n_lc['sample'] == 'random') & (n_lc.group == 'unresolved')]):,} were "
-                     "examined here.\n")
+                     f"{share * nup:.0f} of the {nup:,} unresolved candidates with periods. "
+                     f"{max(nup - len(lc_unres), 0):,} have not had their light curves checked yet; "
+                     "each later run checks more of them.\n")
         exp = [f"{v[3]:.1%} by the {k.replace('_', '/')} check" for k, v in chosen.items() if v]
         L.append("**How reliable the flags are.** Known planets were flagged " + ", ".join(exp)
                  + f" and {g.rate['planet']:.2%} by the Gaia check. A candidate flagged only by a light-curve "

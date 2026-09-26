@@ -1,8 +1,14 @@
 """Phase 6: find likely false positives among existing TESS candidates (TOIs, CTOIs).
 
-    python scripts/phase6.py gaia            # tables + Gaia orbit / EB cross-match (batched)
-    python scripts/phase6.py lc [--procs 2]  # light-curve checks on the selected samples
-    python scripts/phase6.py report          # validation, flags, table, summary
+    python scripts/phase6.py gaia [--refresh]         # tables + Gaia orbit / EB cross-match (batched)
+    python scripts/phase6.py lc [--procs 2]           # light-curve checks on the selected samples
+    python scripts/phase6.py lc --all --limit 500     # ... and on 500 more unchecked candidates
+    python scripts/phase6.py report                   # validation, flags, table, summary
+    python scripts/run_fp_triage.py                   # all three, as the app runs them
+
+--refresh downloads today's TOI and CTOI tables (once) so new submissions are
+included. Every light-curve check is recorded in results/phase6/lc_checks.csv.gz
+(committed), so no candidate is checked twice, on this machine or any other.
 
 Groups: "unresolved" (TFOPWG PC / APC / none; CTOIs not promoted to TOI),
 "planet" (CP, KP) and "fp" (FP, FA). Planets and false positives are the
@@ -16,6 +22,8 @@ mirror and are deleted after reading.
 """
 
 import argparse
+import datetime
+import glob
 import json
 import os
 import sys
@@ -35,6 +43,7 @@ from tesshunt import fptriage as fp  # noqa: E402
 WORK = os.path.join(ROOT, "work", "phase6")
 OUT = os.path.join(ROOT, "results", "phase6")
 PLOTS = os.path.join(ROOT, "plots", "phase6")
+LEDGER = os.path.join(OUT, "lc_checks.csv.gz")      # every light-curve check done so far
 SAMPLE = 300
 SEED = 6
 MAX_PLANET_FLAG_RATE = 0.05          # a check flagging more planets than this is not used
@@ -73,7 +82,8 @@ def jdump(path, obj):
 
 def stage_gaia(args):
     os.makedirs(WORK, exist_ok=True)
-    t = fp.load_tables()
+    t = fp.load_tables(refresh=args.refresh)
+    print(f"TOI/CTOI tables downloaded {fp.tables_date()}")
     ids = fp.gaia_ids(t.tic.unique())
     t = t.merge(ids, on="tic", how="left")
     t["m1"] = t.mstar.where(t.mstar > 0, t["mass"])
@@ -139,18 +149,84 @@ def chance_matches(t, nss, eb, n_perm=200, seed=1):
 
 # ------------------------------------------------------------------ light curves
 
-def select_lc(t, matches):
-    rng = np.random.default_rng(SEED)
+def select_lc(t, matches, prior=None, full=False):
+    """Candidates for the light-curve checks, with the sample each belongs to.
+
+    Random samples of SAMPLE per group (the validation sets) are drawn once
+    and then kept: ``prior`` (name -> sample, from the checks already done)
+    fixes them even after the tables are refreshed. Gaia-matched candidates
+    are always included. ``full`` adds every other unresolved candidate."""
+    prior = prior or {}
     per = t[t.periodic]
     flagged = set(matches.name) if len(matches) else set()
-    pick = []
-    for g in ("unresolved", "planet", "fp"):
-        pool = per[(per.group == g) & ~per.name.isin(flagged)]
-        n = min(SAMPLE, len(pool))
-        pick += list(pool.name.values[rng.choice(len(pool), n, replace=False)])
-    sel = per[per.name.isin(set(pick) | flagged)].copy()
-    sel["sample"] = np.where(sel.name.isin(flagged), "gaia_flagged", "random")
+    if any(v == "random" for v in prior.values()):
+        pick = {n for n, v in prior.items() if v == "random"}
+    else:
+        rng = np.random.default_rng(SEED)
+        pick = set()
+        for g in ("unresolved", "planet", "fp"):
+            pool = per[(per.group == g) & ~per.name.isin(flagged)]
+            n = min(SAMPLE, len(pool))
+            pick |= set(pool.name.values[rng.choice(len(pool), n, replace=False)])
+    keep = per.name.isin(pick | flagged | set(prior))
+    if full:
+        keep |= per.group == "unresolved"
+    sel = per[keep].copy()
+    sel["sample"] = [prior.get(n) or ("gaia_flagged" if n in flagged else "random" if n in pick else "full")
+                     for n in sel.name]
     return sel
+
+
+def _json_path(name):
+    return os.path.join(WORK, "lc", name.replace(" ", "_") + ".json")
+
+
+def seed_from_ledger():
+    """Write the committed light-curve results back into work/phase6/lc/, so
+    candidates checked on any machine are not checked again. Returns count."""
+    if not os.path.exists(LEDGER):
+        return 0
+    led = pd.read_csv(LEDGER)
+    n = 0
+    for r in led.to_dict("records"):
+        p = _json_path(r["name"])
+        if os.path.exists(p):
+            continue
+        r = {k: v for k, v in r.items() if not (isinstance(v, float) and np.isnan(v))}
+        r["sectors"] = [int(x) for x in str(r.get("sectors", "")).split(";") if x.strip()]
+        jdump(p, r)
+        n += 1
+    return n
+
+
+def done_checks():
+    """name -> result of every light-curve check on this machine."""
+    out = {}
+    for p in glob.glob(os.path.join(WORK, "lc", "*.json")):
+        with open(p) as fh:
+            r = json.load(fh)
+        out[r["name"]] = r
+    return out
+
+
+def write_ledger(current_names=None):
+    """Save every light-curve check to results/phase6/lc_checks.csv.gz."""
+    rows = []
+    for r in done_checks().values():
+        r = dict(r)
+        r["sectors"] = ";".join(map(str, r.get("sectors") or []))
+        rows.append(r)
+    if not rows:
+        return 0
+    df = pd.DataFrame(rows)
+    if current_names is not None:
+        df["in_current_tables"] = df.name.isin(current_names)
+    first = ["name", "tic", "group", "sample", "checked", "tables_date", "n_events", "sectors"]
+    df = df[[c for c in first if c in df] + [c for c in df if c not in first]].sort_values("name")
+    os.makedirs(OUT, exist_ok=True)
+    df.to_csv(LEDGER + ".tmp", index=False, float_format="%.6g", compression="gzip")
+    os.replace(LEDGER + ".tmp", LEDGER)
+    return len(df)
 
 
 def _others(t, r):
@@ -169,7 +245,7 @@ def _init():
 
 
 def lc_job(r):
-    out = os.path.join(WORK, "lc", r["name"].replace(" ", "_") + ".json")
+    out = _json_path(r["name"])
     if os.path.exists(out):
         return r["name"], "cached"
     try:
@@ -177,7 +253,8 @@ def lc_job(r):
         res = fp.lc_checks(r["tic"], r["ra"], r["dec"], r["period"], r["epoch_btjd"], r["duration_h"],
                            r["depth_ppm"], others=_others(_T, r), tmp_dir=tmp)
         os.rmdir(tmp) if not os.listdir(tmp) else None
-        res.update(name=r["name"], group=r["group"], sample=r["sample"])
+        res.update(name=r["name"], group=r["group"], sample=r["sample"],
+                   checked=datetime.date.today().isoformat(), tables_date=r.get("tables_date"))
         jdump(out, res)
         return r["name"], "ok" if res.get("n_events") else "no data"
     except Exception as e:  # noqa: BLE001
@@ -187,16 +264,32 @@ def lc_job(r):
 
 
 def stage_lc(args):
+    n = seed_from_ledger()
+    if n:
+        print(f"{n} light-curve checks restored from {os.path.relpath(LEDGER, ROOT)}")
     t = pd.read_csv(os.path.join(WORK, "candidates.csv"))
     m = pd.read_csv(os.path.join(WORK, "gaia_matches.csv")) if os.path.getsize(
         os.path.join(WORK, "gaia_matches.csv")) > 1 else pd.DataFrame(columns=["name"])
-    sel = select_lc(t, m)
+    done = done_checks()
+    sel = select_lc(t, m, prior={k: v.get("sample") for k, v in done.items()}, full=args.all)
+    sel["tables_date"] = fp.tables_date()
     sel.to_csv(os.path.join(WORK, "lc_selection.csv"), index=False)
-    print(sel.groupby(["group", "sample"]).size().to_string())
+    todo = sel[~sel.name.isin(done)]
+    # most useful first: Gaia-matched, then the validation samples, then the rest (fixed random order)
+    rank = todo["sample"].map({"gaia_flagged": 0, "random": 1, "full": 2}).fillna(3)
+    shuffle = np.random.default_rng(SEED).permutation(len(todo))
+    todo = todo.assign(_r=rank.values, _s=shuffle).sort_values(["_r", "_s"]).drop(columns=["_r", "_s"])
+    unres = sel[sel.group == "unresolved"]
+    print(f"light-curve checks: {len(sel) - len(todo)} done, {len(todo)} to do "
+          f"({unres.name.isin(done).sum()} of {int((t.periodic & (t.group == 'unresolved')).sum())} "
+          "unresolved candidates checked so far)", flush=True)
     os.makedirs(os.path.join(ROOT, "work", "tmp"), exist_ok=True)
-    recs = sel.to_dict("records")
+    recs = todo.to_dict("records")
     if args.limit:
         recs = recs[:args.limit]
+    if not recs:
+        print("nothing new to check")
+        return
     t0, counts = time.time(), {}
     with Pool(args.procs, initializer=_init) as pool:
         for i, (k, s) in enumerate(pool.imap_unordered(lc_job, recs), 1):
@@ -209,10 +302,13 @@ def stage_lc(args):
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("gaia")
+    g = sub.add_parser("gaia")
+    g.add_argument("--refresh", action="store_true", help="download today's TOI/CTOI tables")
     s = sub.add_parser("lc")
     s.add_argument("--procs", type=int, default=2)
-    s.add_argument("--limit", type=int, default=0)
+    s.add_argument("--limit", type=int, default=0, help="check at most this many new candidates")
+    s.add_argument("--all", action="store_true",
+                   help="also check unresolved candidates outside the samples, not yet checked")
     sub.add_parser("report")
     args = ap.parse_args()
     if args.cmd == "report":

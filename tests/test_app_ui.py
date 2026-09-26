@@ -124,3 +124,30 @@ def test_run_page_warns_about_a_searched_sector(tmp_path):
     _by_label(at.checkbox, "Run this sector again").check().run()
     assert not _by_label(at.button, "Start").disabled
     assert not (tmp_path / "s.json").exists()
+
+
+def test_false_positive_run_is_followed_to_the_end(tmp_path, monkeypatch):
+    import time
+    from app import runner
+    monkeypatch.setattr(runner, "RUN_DIR", str(tmp_path))
+    monkeypatch.setattr(runner, "STATE", str(tmp_path / "current.json"))
+    lines = "".join(f"print('=== [00:00:00] {s}: x'); print('=== {s} done in 0.1 min');"
+                    for s in runner.FP_STEP_NAMES)
+    st = runner.start_fp(_cmd=[sys.executable, "-c", lines, "run_fp_triage.py"])
+    for _ in range(50):
+        if not runner.current()["running"]:
+            break
+        time.sleep(0.1)
+    cur = runner.current()
+    assert cur["kind"] == "fp" and runner.label(cur) == "False-positive check"
+    assert runner.progress(runner.log_text(st["log"]), cur["steps"])["finished"]
+
+
+def test_run_page_offers_both_kinds_of_run(tmp_path):
+    at = _app("Run", tmp_path / "s.json")
+    at.run()
+    assert not at.exception
+    labels = [b.label for b in at.button]
+    assert any("Start / resume the search" in x for x in labels)
+    assert any("Start the check" in x for x in labels)
+    assert not (tmp_path / "s.json").exists()

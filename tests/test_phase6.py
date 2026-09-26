@@ -121,3 +121,41 @@ def test_variant_choice_rejects_checks_that_flag_planets():
     # plain sigma cuts flag 20 % of planets; the ">= 20 % different" variant flags none
     assert chosen["odd_even"][1] == p6.VARIANTS["odd_even"][2][0]
     assert chosen["secondary"] is not None and chosen["centroid"] is not None
+
+
+def _table():
+    rows = []
+    for g in ("unresolved", "planet", "fp"):
+        for i in range(400):
+            rows.append(dict(name=f"{g}-{i}", tic=i, group=g, periodic=True))
+    return pd.DataFrame(rows)
+
+
+def test_samples_are_kept_and_full_adds_the_rest(monkeypatch):
+    import phase6 as p6
+    t = _table()
+    sel = p6.select_lc(t, pd.DataFrame(columns=["name"]))
+    assert (sel["sample"] == "random").sum() == 3 * p6.SAMPLE
+    prior = dict(zip(sel.name, sel["sample"]))
+    t2 = pd.concat([t, pd.DataFrame([dict(name="unresolved-new", tic=9999, group="unresolved",
+                                          periodic=True)])], ignore_index=True)
+    again = p6.select_lc(t2, pd.DataFrame(columns=["name"]), prior=prior)
+    assert set(again.name) == set(sel.name)                  # a refreshed table does not redraw
+    full = p6.select_lc(t2, pd.DataFrame(columns=["name"]), prior=prior, full=True)
+    assert "unresolved-new" in set(full.name) and (full["sample"] == "full").sum() == 101
+    assert not full.name.str.startswith("planet").sum() > p6.SAMPLE
+
+
+def test_checks_are_recorded_and_restored(tmp_path, monkeypatch):
+    import phase6 as p6
+    monkeypatch.setattr(p6, "WORK", str(tmp_path / "work"))
+    monkeypatch.setattr(p6, "OUT", str(tmp_path / "out"))
+    monkeypatch.setattr(p6, "LEDGER", str(tmp_path / "out" / "lc_checks.csv.gz"))
+    r = dict(name="TOI 5.01", tic=5, group="unresolved", sample="full", n_events=4, sectors=[1, 27],
+             oddeven_sigma=7.5, checked="2026-09-26")
+    p6.jdump(p6._json_path(r["name"]), r)
+    assert p6.write_ledger({"TOI 5.01"}) == 1
+    os.remove(p6._json_path(r["name"]))                       # a fresh clone: only the record
+    assert p6.seed_from_ledger() == 1 and p6.seed_from_ledger() == 0
+    back = p6.done_checks()["TOI 5.01"]
+    assert back["sectors"] == [1, 27] and back["oddeven_sigma"] == 7.5 and back["sample"] == "full"

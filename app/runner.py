@@ -23,7 +23,9 @@ from . import data
 RUN_DIR = data.path("work", "app_runs")
 STATE = os.path.join(RUN_DIR, "current.json")
 STEP_NAMES = ["select", "search", "phase2-report", "phase3-lc", "phase3-pixels", "phase3-fpp",
-              "phase3-report", "phase4", "pht-plots", "injection-vetting"]
+              "phase3-report", "phase4", "pht-plots", "expert-checks", "expert-report",
+              "injection-vetting"]
+FP_STEP_NAMES = ["fp-tables", "fp-lc", "fp-report"]
 STEP_WORDS = {
     "select": "choosing the stars to search",
     "search": "searching every light curve for dips",
@@ -34,6 +36,11 @@ STEP_WORDS = {
     "phase3-report": "writing the vetting report",
     "phase4": "follow-up: other sectors, orbits and companions",
     "pht-plots": "drawing forum-style light curves of the best candidates",
+    "expert-checks": "expert checks: pixels, noise model, Gaia star and companions, orbit shape",
+    "expert-report": "writing the verdicts and plain-English summaries",
+    "fp-tables": "loading the TOI / CTOI lists and cross-matching Gaia orbits",
+    "fp-lc": "checking light curves for eclipsing-binary signs",
+    "fp-report": "comparing with known planets and writing the list of likely false positives",
     "injection-vetting": "measuring how many real planets the checks would keep",
 }
 
@@ -54,7 +61,8 @@ def _alive(pid: int) -> bool:
     cmd = f"/proc/{pid}/cmdline"          # guard against PID reuse where /proc exists
     if os.path.exists(cmd):
         try:
-            return b"run_sector.py" in open(cmd, "rb").read()
+            line = open(cmd, "rb").read()
+            return b"run_sector.py" in line or b"run_fp_triage.py" in line
         except OSError:
             return False
     return True
@@ -67,32 +75,48 @@ def current() -> dict | None:
     return st
 
 
+def label(st: dict) -> str:
+    return "False-positive check" if st.get("kind") == "fp" else f"Sector {st['sector']}"
+
+
+def _launch(cmd: list, log: str, steps: list, **info) -> dict:
+    st = current()
+    if st and st["running"]:
+        raise RuntimeError(f"{label(st)} is already running; only one run at a time.")
+    os.makedirs(RUN_DIR, exist_ok=True)
+    with open(log, "a") as fh:
+        fh.write(f"\n=== [{time.strftime('%H:%M:%S')}] started from the app: {' '.join(cmd[1:])}\n")
+        p = subprocess.Popen(cmd, cwd=data.ROOT, stdout=fh, stderr=subprocess.STDOUT,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+    st = dict(pid=p.pid, log=log, started=time.time(), cmd=cmd, steps=steps, **info)
+    with open(STATE, "w") as fh:
+        json.dump(st, fh)
+    return st
+
+
 def start(sector: int, procs: int = 3, skip_injection: bool = False, force: bool = False,
           _cmd: list | None = None) -> dict:
     """Start run_sector.py in its own process group (``force`` reruns a sector
     that was already searched; ``_cmd`` replaces the command in tests)."""
-    st = current()
-    if st and st["running"]:
-        raise RuntimeError(f"A run for Sector {st['sector']} is already going.")
-    os.makedirs(RUN_DIR, exist_ok=True)
-    log = os.path.join(RUN_DIR, f"run_s{int(sector):04d}.log")
     cmd = [sys.executable, data.path("scripts", "run_sector.py"), "--sector", str(int(sector)),
            "--procs", str(int(procs))]
     if skip_injection:
         cmd += ["--skip", "injection-vetting"]
     if force:
         cmd += ["--force"]
-    if _cmd:
-        cmd = _cmd
-    with open(log, "a") as fh:
-        fh.write(f"\n=== [{time.strftime('%H:%M:%S')}] started from the app: {' '.join(cmd[1:])}\n")
-        p = subprocess.Popen(cmd, cwd=data.ROOT, stdout=fh, stderr=subprocess.STDOUT,
-                             stdin=subprocess.DEVNULL, start_new_session=True)
     steps = [x for x in STEP_NAMES if not (skip_injection and x == "injection-vetting")]
-    st = dict(pid=p.pid, sector=int(sector), log=log, started=time.time(), cmd=cmd, steps=steps)
-    with open(STATE, "w") as fh:
-        json.dump(st, fh)
-    return st
+    return _launch(_cmd or cmd, os.path.join(RUN_DIR, f"run_s{int(sector):04d}.log"), steps,
+                   kind="sector", sector=int(sector))
+
+
+def start_fp(procs: int = 2, refresh: bool = False, limit: int = 500, _cmd: list | None = None) -> dict:
+    """Start run_fp_triage.py: check other people's candidates for false positives."""
+    cmd = [sys.executable, data.path("scripts", "run_fp_triage.py"), "--procs", str(int(procs)),
+           "--limit", str(int(limit))]
+    if refresh:
+        cmd += ["--refresh"]
+    return _launch(_cmd or cmd, os.path.join(RUN_DIR, "run_fp_triage.log"), list(FP_STEP_NAMES),
+                   kind="fp", sector=None)
 
 
 def stop() -> bool:
@@ -123,14 +147,15 @@ def progress(log_text: str, steps: list[str] | None = None) -> dict:
     Only the part of the log after the last "started from the app" line counts,
     except that steps finished by earlier attempts stay done (they are cached)."""
     steps = steps or STEP_NAMES
+    known = set(STEP_NAMES) | set(FP_STEP_NAMES) | set(steps)
     done, current_step, failed, frac = [], None, None, None
     for line in log_text.splitlines():
         m = _START.match(line)
-        if m and m.group(1) in STEP_NAMES:
+        if m and m.group(1) in known:
             current_step, frac = m.group(1), None
             continue
         m = _DONE.match(line)
-        if m and m.group(1) in STEP_NAMES:
+        if m and m.group(1) in known:
             if m.group(1) not in done:
                 done.append(m.group(1))
             if current_step == m.group(1):

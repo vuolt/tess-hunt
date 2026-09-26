@@ -333,6 +333,11 @@ def _run(t):
 
 
 def cmd_run(args):
+    if args.all_sectors:
+        from tesshunt import ledger
+        args.sectors = [int(r["sector"]) for r in (ledger.row(x) for x in ledger.sectors_with_results())
+                        if r and r["stage"] == "phase4"]
+        print(f"sectors with Phase 4 results: {args.sectors}")
     tg = targets(args.sectors)
     os.makedirs(WORK, exist_ok=True)
     tg.to_json(os.path.join(WORK, "targets.json"), orient="records", indent=1)
@@ -712,6 +717,8 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")
     r.add_argument("--sectors", type=int, nargs="+", default=[48, 21])
+    r.add_argument("--all-sectors", action="store_true",
+                   help="every sector with Phase 4 results (what run_sector.py uses)")
     r.add_argument("--procs", type=int, default=2)
     r.add_argument("--only", nargs="*", help="restrict to these target keys (tests)")
     sub.add_parser("report")

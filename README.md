@@ -226,6 +226,24 @@ python scripts/phase6.py lc --all --limit 500    # odd/even, secondary, centroid
 python scripts/phase6.py report                  # validation, flags, results/phase6/summary.md
 ```
 
+**The checks** (each kept only if it rarely flags known planets):
+- Gaia orbit on the same period, with a companion star;
+- odd/even depths;
+- off-centre dimming;
+- a secondary eclipse at half an orbit that is deeper than any planet's glow
+  could be;
+- an object too big for a planet;
+- a transit that lasts longer than the star's density allows.
+
+Light-curve variants are chosen on a first random sample of known planets
+and false positives, then confirmed on a second, held-out sample.
+
+**Planet score:** all the evidence is combined by a logistic regression
+trained on known planets vs. known false positives, using physical features
+only. It gives every checked candidate a planet probability, and the report
+lists the most planet-like undecided candidates with no red flag
+(`results/phase6/planet_scores.csv`).
+
 Every light-curve check is recorded in `results/phase6/lc_checks.csv.gz`
 (committed). A new clone restores the checks from that record instead of
 downloading the light curves again, and each run checks only candidates

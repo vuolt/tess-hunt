@@ -10,3 +10,4 @@ batman-package>=2.4
 triceratops>=1.1
 tess-point>=0.9
 K2fov>=7
+streamlit>=1.37

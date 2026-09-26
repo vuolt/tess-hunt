@@ -1,0 +1,391 @@
+{
+ "candidates": 2014,
+ "funnel": [
+  {
+   "step": "Phase 2 candidates",
+   "remaining": 2014,
+   "removed": 0,
+   "errors": 0
+  },
+  {
+   "step": "1 Shape",
+   "remaining": 991,
+   "removed": 1023,
+   "errors": 0
+  },
+  {
+   "step": "2 Duration",
+   "remaining": 862,
+   "removed": 129,
+   "errors": 0
+  },
+  {
+   "step": "3 Edge",
+   "remaining": 620,
+   "removed": 242,
+   "errors": 0
+  },
+  {
+   "step": "4 Pixels",
+   "remaining": 215,
+   "removed": 404,
+   "errors": 1
+  },
+  {
+   "step": "5 Asteroids",
+   "remaining": 211,
+   "removed": 4,
+   "errors": 0
+  },
+  {
+   "step": "6 Catalogues",
+   "remaining": 201,
+   "removed": 10,
+   "errors": 0
+  },
+  {
+   "step": "7 FPP",
+   "remaining": 63,
+   "removed": 138,
+   "errors": 0
+  }
+ ],
+ "funnel_by_tier": {
+  "A": [
+   {
+    "step": "Phase 2 candidates",
+    "remaining": 1239,
+    "removed": 0,
+    "errors": 0
+   },
+   {
+    "step": "1 Shape",
+    "remaining": 603,
+    "removed": 636,
+    "errors": 0
+   },
+   {
+    "step": "2 Duration",
+    "remaining": 534,
+    "removed": 69,
+    "errors": 0
+   },
+   {
+    "step": "3 Edge",
+    "remaining": 442,
+    "removed": 92,
+    "errors": 0
+   },
+   {
+    "step": "4 Pixels",
+    "remaining": 99,
+    "removed": 342,
+    "errors": 1
+   },
+   {
+    "step": "5 Asteroids",
+    "remaining": 96,
+    "removed": 3,
+    "errors": 0
+   },
+   {
+    "step": "6 Catalogues",
+    "remaining": 92,
+    "removed": 4,
+    "errors": 0
+   },
+   {
+    "step": "7 FPP",
+    "remaining": 55,
+    "removed": 37,
+    "errors": 0
+   }
+  ],
+  "B": [
+   {
+    "step": "Phase 2 candidates",
+    "remaining": 775,
+    "removed": 0,
+    "errors": 0
+   },
+   {
+    "step": "1 Shape",
+    "remaining": 388,
+    "removed": 387,
+    "errors": 0
+   },
+   {
+    "step": "2 Duration",
+    "remaining": 328,
+    "removed": 60,
+    "errors": 0
+   },
+   {
+    "step": "3 Edge",
+    "remaining": 178,
+    "removed": 150,
+    "errors": 0
+   },
+   {
+    "step": "4 Pixels",
+    "remaining": 116,
+    "removed": 62,
+    "errors": 0
+   },
+   {
+    "step": "5 Asteroids",
+    "remaining": 115,
+    "removed": 1,
+    "errors": 0
+   },
+   {
+    "step": "6 Catalogues",
+    "remaining": 109,
+    "removed": 6,
+    "errors": 0
+   },
+   {
+    "step": "7 FPP",
+    "remaining": 8,
+    "removed": 101,
+    "errors": 0
+   }
+  ]
+ },
+ "independent": {
+  "shape": {
+   "ran": 2014,
+   "failed": 1023
+  },
+  "duration": {
+   "ran": 2014,
+   "failed": 335
+  },
+  "edge": {
+   "ran": 2014,
+   "failed": 829
+  },
+  "centroid": {
+   "ran": 867,
+   "failed": 26
+  },
+  "neighbours": {
+   "ran": 867,
+   "failed": 54
+  },
+  "pixel_confirm": {
+   "ran": 867,
+   "failed": 617
+  },
+  "pixels": {
+   "ran": 867,
+   "failed": 643
+  },
+  "asteroid": {
+   "ran": 867,
+   "failed": 57
+  },
+  "catalogue": {
+   "ran": 867,
+   "failed": 16
+  },
+  "fpp": {
+   "ran": 214,
+   "failed": 145
+  }
+ },
+ "survivors": 63,
+ "survivors_new": 42,
+ "survivors_known": 21,
+ "validation": {
+  "planets": {
+   "n": 26,
+   "per_check": {
+    "shape": {
+     "ran": 26,
+     "passed": 24
+    },
+    "duration": {
+     "ran": 26,
+     "passed": 22
+    },
+    "edge": {
+     "ran": 26,
+     "passed": 25
+    },
+    "pixels": {
+     "ran": 26,
+     "passed": 22
+    },
+    "asteroid": {
+     "ran": 26,
+     "passed": 26
+    },
+    "catalogue": {
+     "ran": 26,
+     "passed": 23
+    },
+    "fpp": {
+     "ran": 26,
+     "passed": 18
+    },
+    "centroid": {
+     "ran": 26,
+     "passed": 26
+    },
+    "neighbours": {
+     "ran": 26,
+     "passed": 26
+    },
+    "pixel_confirm": {
+     "ran": 26,
+     "passed": 22
+    }
+   },
+   "all_passed": 13,
+   "failures": {
+    "1274.01": [],
+    "1898.01": [
+     "pixels",
+     "fpp"
+    ],
+    "1670.01": [],
+    "7090.01": [
+     "fpp"
+    ],
+    "1890.01": [],
+    "1764.01": [
+     "duration",
+     "pixels",
+     "catalogue",
+     "fpp"
+    ],
+    "1692.02": [],
+    "1642.01": [
+     "duration",
+     "catalogue",
+     "fpp"
+    ],
+    "3868.01": [],
+    "4117.01": [],
+    "4168.01": [
+     "duration",
+     "fpp"
+    ],
+    "2271.01": [
+     "duration",
+     "catalogue",
+     "fpp"
+    ],
+    "1874.01": [
+     "fpp"
+    ],
+    "5722.01": [],
+    "1873.01": [],
+    "5650.01": [],
+    "3832.01": [],
+    "2088.01": [],
+    "7357.01": [],
+    "5235.01": [
+     "fpp"
+    ],
+    "5635.01": [
+     "shape"
+    ],
+    "5717.01": [
+     "shape"
+    ],
+    "1434.01": [
+     "edge"
+    ],
+    "1751.01": [
+     "pixels"
+    ],
+    "1339.03": [
+     "pixels"
+    ],
+    "1246.04": []
+   }
+  },
+  "known_false_positives": {
+   "n": 4,
+   "per_check": {
+    "shape": {
+     "ran": 4,
+     "passed": 4
+    },
+    "duration": {
+     "ran": 4,
+     "passed": 4
+    },
+    "edge": {
+     "ran": 4,
+     "passed": 4
+    },
+    "pixels": {
+     "ran": 4,
+     "passed": 4
+    },
+    "asteroid": {
+     "ran": 4,
+     "passed": 4
+    },
+    "catalogue": {
+     "ran": 4,
+     "passed": 0
+    },
+    "fpp": {
+     "ran": 4,
+     "passed": 2
+    },
+    "centroid": {
+     "ran": 4,
+     "passed": 4
+    },
+    "neighbours": {
+     "ran": 4,
+     "passed": 4
+    },
+    "pixel_confirm": {
+     "ran": 4,
+     "passed": 4
+    }
+   },
+   "all_passed": 0,
+   "failures": {
+    "5746.01": [
+     "catalogue",
+     "fpp"
+    ],
+    "5621.01": [
+     "catalogue"
+    ],
+    "2148.01": [
+     "catalogue"
+    ],
+    "1141.01": [
+     "catalogue",
+     "fpp"
+    ]
+   }
+  }
+ },
+ "shape_with_box_rule": {
+  "candidates_fail_extra": 40,
+  "validation_fail_extra": 0
+ },
+ "errors": {
+  "lc": {
+   "ok": 2016
+  },
+  "pix": {
+   "not run": 1146,
+   "ok": 869,
+   "error": 1
+  },
+  "fpp": {
+   "not run": 1800,
+   "ok": 216
+  }
+ }
+}

@@ -106,7 +106,9 @@ def predict(ta, sa, tb, sb, n, t_start, t_end):
 
 def sector_bounds(max_sector=None):
     """Approximate sector start/end (BTJD) from tess-point's sector mid-times:
-    halfway to the neighbouring sectors' mid-times. Edges good to ~1 d."""
+    halfway to the neighbouring sectors' mid-times. Edges good to ~1 d for
+    regular 27 d sectors; S97-S98, whose mid-times are 40-56 d apart, come out
+    ~49 d long."""
     import tess_stars2px as t2
     sc = t2.TESS_Spacecraft_Pointing_Data()
     s, m = np.array(sc.sectors), np.array(sc.midtimes) - 2457000.0

@@ -26,4 +26,5 @@ def test_sector_bounds_are_contiguous():
     b = ep.sector_bounds()
     assert b[48][0] < 2621.1 < b[48][1]          # the S48 transit lies inside S48
     assert abs(b[48][1] - b[49][0]) < 1e-6
-    assert all(20 < e - s < 40 for s, e in b.values())
+    # most sectors are ~27 d; S97-S98 have mid-times 40-56 d apart in tess-point
+    assert all(20 < e - s < 60 for s, e in b.values())

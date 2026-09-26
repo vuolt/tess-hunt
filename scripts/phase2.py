@@ -22,7 +22,7 @@ import numpy as np
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from tesshunt import ffi, tic  # noqa: E402
+from tesshunt import ffi, ledger, tic  # noqa: E402
 from tesshunt.survey import Store, process_star  # noqa: E402
 
 WORK = os.path.join(ROOT, "work")
@@ -89,6 +89,16 @@ def cmd_search(args):
         with store.db:
             n = store.db.execute("DELETE FROM stars WHERE status='error'").rowcount
         print(f"retrying {n} errored stars")
+    if not args.search_again:
+        n = ledger.seed_store(store, args.sector)
+        if n:
+            print(f"{n} stars were already searched in Sector {args.sector} "
+                  f"({os.path.relpath(ledger.stars_file(args.sector), ROOT)}): not searched again "
+                  "(--search-again to override)")
+    elsewhere = {s: k for s, k in ledger.searched_elsewhere(sample, args.sector).items() if k}
+    if elsewhere:
+        print("also searched in other sectors (searched again: each sector is new data): "
+              + ", ".join(f"S{s}: {k} stars" for s, k in elsewhere.items()))
     done = store.done()
     # Process injection stars first so the sensitivity result is available early.
     pending = [t for t in sample if t not in done]
@@ -137,6 +147,9 @@ def main():
     s.add_argument("--n-inject", type=int, default=20, help="trials per injection star")
     s.add_argument("--seed", type=int, default=2024)
     s.add_argument("--retry-errors", action="store_true")
+    s.add_argument("--search-again", action="store_true",
+                   help="do not copy stars already in results/phase2 into the local database "
+                        "(stars in the local database are still resumed, not redone)")
     s.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
     {"select": cmd_select, "search": cmd_search}[args.cmd](args)

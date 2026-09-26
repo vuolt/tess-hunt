@@ -3,6 +3,7 @@
     python scripts/run_sector.py --sector 49
     python scripts/run_sector.py --sector 49 --from phase3-lc     # resume from a step
     python scripts/run_sector.py --sector 49 --skip injection-vetting
+    python scripts/run_sector.py --sector 48 --force               # run a searched sector again
 
 Steps (each is resumable and caches its work, so rerunning the command after
 an interruption continues where it stopped):
@@ -18,6 +19,11 @@ an interruption continues where it stopped):
                        submit / maybe / drop, CTOI summaries, follow-up sheets
   injection-vetting    the Phase 2 injections through all seven checks
 
+Sectors already searched are listed in results/sectors_searched.csv (rebuilt
+from the committed results after every run). Starting a finished one (Phase 4
+done) again stops with a note unless --force or --from is given; even then, stars already in
+results/phase2/sXXXX_stars.csv.gz are not downloaded or searched again.
+
 External services are used politely (tesshunt/net.py): bulk light curves from
 the AWS S3 mirror first, every response cached in work/cache, small services
 (SkyBoT, ExoFOP, Gaia, VizieR, MAST catalogue and TESScut queries) serialized
@@ -31,6 +37,9 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))
+
+from tesshunt import ledger  # noqa: E402
 
 STEPS = [
     ("select", ["phase2.py", "--sector", "{s}", "select", "--tmag-max", "{tmag}"]),
@@ -55,7 +64,16 @@ def main():
     ap.add_argument("--from", dest="start", choices=[s for s, _ in STEPS])
     ap.add_argument("--skip", nargs="*", default=[], choices=[s for s, _ in STEPS])
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true", help="run a sector that was already searched")
     args = ap.parse_args()
+    done = ledger.entry(args.sector)
+    if done:
+        print(ledger.describe(done), flush=True)
+        if done["stage"] == "phase4" and not (args.force or args.start):
+            print("Nothing to do. Results are in results/phase2-4; use --force to run it again "
+                  "(already-searched stars are still not searched again), or --from STEP to redo "
+                  "later steps.", flush=True)
+            return
     env = dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
                PYTHONWARNINGS="ignore")
     started = args.start is None
@@ -76,6 +94,9 @@ def main():
                   f"--from {name}", file=sys.stderr)
             sys.exit(r.returncode)
         print(f"=== {name} done in {(time.time() - t0) / 60:.1f} min", flush=True)
+    if not args.dry_run:
+        ledger.rebuild()
+        print(f"ledger updated: {os.path.relpath(ledger.LEDGER, os.path.dirname(HERE))}", flush=True)
 
 
 if __name__ == "__main__":

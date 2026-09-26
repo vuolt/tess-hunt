@@ -1,0 +1,3 @@
+sector,stage,stars_searched,stars_failed,phase2_candidates,phase3_survivors,phase3_new,phase4_submit,phase4_maybe,results_date,stars_file
+21,phase3,135625,4,2014,63,42,,,2026-09-26,results/phase2/s0021_stars.csv.gz
+48,phase4,128455,0,2627,54,28,2,11,2026-09-25,results/phase2/s0048_stars.csv.gz

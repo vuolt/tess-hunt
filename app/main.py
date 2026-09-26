@@ -106,12 +106,23 @@ def page_run():
     procs = c2.number_input("CPU cores to use", 1, os.cpu_count() or 4,
                             value=min(3, os.cpu_count() or 3), disabled=running)
     skip = c3.checkbox("Skip the final sensitivity test (saves ~1–2 h)", value=False, disabled=running)
+    done = data.searched_sector(int(sector))
+    finished = bool(done and done["stage"] == "phase4")
+    force = False
+    if done:
+        from tesshunt import ledger
+        st.warning(ledger.describe(done) + (" Its results are on the Results and Candidates pages."
+                                            if finished else " Starting it again resumes the run."))
+        if finished:
+            force = st.checkbox("Run this sector again anyway", value=False, disabled=running,
+                                help="Stars already searched are still not downloaded or searched again; "
+                                     "the later steps are redone.")
     b1, b2 = st.columns(2)
-    if b1.button("▶ Start / resume", disabled=running, type="primary",
+    if b1.button("▶ Start / resume", disabled=running or (finished and not force), type="primary",
                  help="Starting a sector that was interrupted continues where it stopped: every step "
                       "keeps its finished work."):
         try:
-            runner.start(int(sector), int(procs), skip)
+            runner.start(int(sector), int(procs), skip, force=force)
             st.success(f"Started Sector {int(sector)}.")
             st.rerun()
         except RuntimeError as e:
@@ -121,6 +132,10 @@ def page_run():
         st.warning("Stopped. Press Start / resume later to continue from where it stopped.")
         st.rerun()
     live_status()
+    led = data.searched()
+    if len(led):
+        with st.expander(f"Sectors already searched ({len(led)})"):
+            st.dataframe(led.rename(columns=lambda c: c.replace("_", " ")), hide_index=True)
 
 
 @st.fragment(run_every=5)

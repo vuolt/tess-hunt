@@ -112,3 +112,15 @@ def test_runner_start_progress_stop(tmp_path, monkeypatch):
         time.sleep(0.1)
     assert not runner.current()["running"]
     assert "stopped from the app" in runner.log_text(st["log"])
+
+
+def test_run_page_warns_about_a_searched_sector(tmp_path):
+    at = _app("Run", tmp_path / "s.json")
+    at.run()
+    _by_label(at.number_input, "Sector").set_value(48).run()
+    assert any("already searched" in w.value for w in at.warning)
+    start = _by_label(at.button, "Start")
+    assert start.disabled                                   # finished: needs "run again anyway"
+    _by_label(at.checkbox, "Run this sector again").check().run()
+    assert not _by_label(at.button, "Start").disabled
+    assert not (tmp_path / "s.json").exists()

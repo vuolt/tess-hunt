@@ -1,0 +1,396 @@
+{
+ "trials": 4000,
+ "recovered": 2673,
+ "plausible": 2566,
+ "recovered_plausible": 1644,
+ "detected_again": 2670,
+ "pass_by_check": {
+  "shape": {
+   "ran": 2670,
+   "passed": 2336
+  },
+  "duration": {
+   "ran": 2670,
+   "passed": 1674
+  },
+  "edge": {
+   "ran": 2670,
+   "passed": 2634
+  },
+  "pixels": {
+   "ran": 2653,
+   "passed": 2518
+  },
+  "asteroid": {
+   "ran": 400,
+   "passed": 399
+  },
+  "catalogue": {
+   "ran": 2670,
+   "passed": 2653
+  },
+  "fpp": {
+   "ran": 136,
+   "passed": 113
+  }
+ },
+ "pass_by_check_plausible": {
+  "shape": {
+   "ran": 1642,
+   "passed": 1430
+  },
+  "duration": {
+   "ran": 1642,
+   "passed": 1636
+  },
+  "edge": {
+   "ran": 1642,
+   "passed": 1607
+  },
+  "pixels": {
+   "ran": 1631,
+   "passed": 1508
+  },
+  "asteroid": {
+   "ran": 394,
+   "passed": 393
+  },
+  "catalogue": {
+   "ran": 1642,
+   "passed": 1631
+  },
+  "fpp": {
+   "ran": 131,
+   "passed": 112
+  }
+ },
+ "shape_box_rule_extra_fail": 469,
+ "fpp_subset": 136,
+ "sky_subset": 400,
+ "sky_pass_rate": 0.9975,
+ "errors": 0,
+ "recall_all": [
+  {
+   "snr_bin": "(0.0, 7.0]",
+   "n": 1073,
+   "recovered": 0.05591798695246971,
+   "n_recovered": 60,
+   "vet_1_6": 0.116375,
+   "n_fpp": 7,
+   "fpp_pass": 0.42857142857142855,
+   "vet_1_7": 0.049875,
+   "pass_shape": 0.3,
+   "pass_duration": 0.6666666666666666,
+   "pass_edge": 0.95,
+   "pass_pixels": 0.8833333333333333,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(7.0, 8.0]",
+   "n": 176,
+   "recovered": 0.4375,
+   "n_recovered": 77,
+   "vet_1_6": 0.11659090909090909,
+   "n_fpp": 9,
+   "fpp_pass": 0.6666666666666666,
+   "vet_1_7": 0.07772727272727273,
+   "pass_shape": 0.36,
+   "pass_duration": 0.49333333333333335,
+   "pass_edge": 1.0,
+   "pass_pixels": 0.9866666666666667,
+   "pass_asteroid": NaN,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(8.0, 9.0]",
+   "n": 168,
+   "recovered": 0.6309523809523809,
+   "n_recovered": 106,
+   "vet_1_6": 0.20702830188679247,
+   "n_fpp": 15,
+   "fpp_pass": 0.8,
+   "vet_1_7": 0.16562264150943398,
+   "pass_shape": 0.5188679245283019,
+   "pass_duration": 0.44339622641509435,
+   "pass_edge": 0.9905660377358491,
+   "pass_pixels": 0.9714285714285714,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9905660377358491
+  },
+  {
+   "snr_bin": "(9.0, 10.0]",
+   "n": 136,
+   "recovered": 0.7794117647058824,
+   "n_recovered": 106,
+   "vet_1_6": 0.29172169811320753,
+   "n_fpp": 15,
+   "fpp_pass": 0.9333333333333333,
+   "vet_1_7": 0.27227358490566034,
+   "pass_shape": 0.5377358490566038,
+   "pass_duration": 0.5566037735849056,
+   "pass_edge": 0.9905660377358491,
+   "pass_pixels": 0.9528301886792453,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(10.0, 12.0]",
+   "n": 266,
+   "recovered": 0.8007518796992481,
+   "n_recovered": 213,
+   "vet_1_6": 0.34654929577464794,
+   "n_fpp": 15,
+   "fpp_pass": 1.0,
+   "vet_1_7": 0.34654929577464794,
+   "pass_shape": 0.6995305164319249,
+   "pass_duration": 0.5727699530516432,
+   "pass_edge": 0.9859154929577465,
+   "pass_pixels": 0.9575471698113207,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9953051643192489
+  },
+  {
+   "snr_bin": "(12.0, 15.0]",
+   "n": 310,
+   "recovered": 0.9193548387096774,
+   "n_recovered": 285,
+   "vet_1_6": 0.4935,
+   "n_fpp": 15,
+   "fpp_pass": 0.8666666666666667,
+   "vet_1_7": 0.4277,
+   "pass_shape": 0.8631578947368421,
+   "pass_duration": 0.631578947368421,
+   "pass_edge": 0.9894736842105263,
+   "pass_pixels": 0.9436619718309859,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9964912280701754
+  },
+  {
+   "snr_bin": "(15.0, 20.0]",
+   "n": 376,
+   "recovered": 0.9627659574468085,
+   "n_recovered": 362,
+   "vet_1_6": 0.5676381215469614,
+   "n_fpp": 15,
+   "fpp_pass": 1.0,
+   "vet_1_7": 0.5676381215469614,
+   "pass_shape": 0.9640883977900553,
+   "pass_duration": 0.643646408839779,
+   "pass_edge": 0.9834254143646409,
+   "pass_pixels": 0.9466292134831461,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9834254143646409
+  },
+  {
+   "snr_bin": "(20.0, 30.0]",
+   "n": 563,
+   "recovered": 0.9769094138543517,
+   "n_recovered": 550,
+   "vet_1_6": 0.5712954545454546,
+   "n_fpp": 15,
+   "fpp_pass": 0.8,
+   "vet_1_7": 0.4570363636363637,
+   "pass_shape": 0.9763636363636363,
+   "pass_duration": 0.6527272727272727,
+   "pass_edge": 0.9818181818181818,
+   "pass_pixels": 0.9377289377289377,
+   "pass_asteroid": 0.9895833333333334,
+   "pass_catalogue": 0.9927272727272727
+  },
+  {
+   "snr_bin": "(30.0, 50.0]",
+   "n": 706,
+   "recovered": 0.9801699716713881,
+   "n_recovered": 692,
+   "vet_1_6": 0.5823554913294798,
+   "n_fpp": 15,
+   "fpp_pass": 0.7333333333333333,
+   "vet_1_7": 0.4270606936416185,
+   "pass_shape": 0.9811866859623734,
+   "pass_duration": 0.6454413892908828,
+   "pass_edge": 0.9898697539797395,
+   "pass_pixels": 0.950509461426492,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9942112879884226
+  },
+  {
+   "snr_bin": "(50.0, 1000000000.0]",
+   "n": 226,
+   "recovered": 0.9823008849557522,
+   "n_recovered": 222,
+   "vet_1_6": 0.6380405405405406,
+   "n_fpp": 15,
+   "fpp_pass": 0.8,
+   "vet_1_7": 0.5104324324324325,
+   "pass_shape": 0.990990990990991,
+   "pass_duration": 0.6801801801801802,
+   "pass_edge": 0.990990990990991,
+   "pass_pixels": 0.9684684684684685,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 1.0
+  }
+ ],
+ "recall_plausible": [
+  {
+   "snr_bin": "(0.0, 7.0]",
+   "n": 693,
+   "recovered": 0.050505050505050504,
+   "n_recovered": 35,
+   "vet_1_6": 0.1425,
+   "n_fpp": 5,
+   "fpp_pass": 0.6,
+   "vet_1_7": 0.08549999999999999,
+   "pass_shape": 0.22857142857142856,
+   "pass_duration": 0.9714285714285714,
+   "pass_edge": 0.9142857142857143,
+   "pass_pixels": 0.8285714285714286,
+   "pass_asteroid": NaN,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(7.0, 8.0]",
+   "n": 111,
+   "recovered": 0.3153153153153153,
+   "n_recovered": 35,
+   "vet_1_6": 0.228,
+   "n_fpp": 8,
+   "fpp_pass": 0.75,
+   "vet_1_7": 0.171,
+   "pass_shape": 0.23529411764705882,
+   "pass_duration": 1.0,
+   "pass_edge": 1.0,
+   "pass_pixels": 0.9705882352941176,
+   "pass_asteroid": NaN,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(8.0, 9.0]",
+   "n": 97,
+   "recovered": 0.4329896907216495,
+   "n_recovered": 42,
+   "vet_1_6": 0.4275,
+   "n_fpp": 13,
+   "fpp_pass": 0.8461538461538461,
+   "vet_1_7": 0.36173076923076924,
+   "pass_shape": 0.47619047619047616,
+   "pass_duration": 1.0,
+   "pass_edge": 0.9761904761904762,
+   "pass_pixels": 0.9285714285714286,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(9.0, 10.0]",
+   "n": 87,
+   "recovered": 0.6666666666666666,
+   "n_recovered": 58,
+   "vet_1_6": 0.515948275862069,
+   "n_fpp": 15,
+   "fpp_pass": 0.9333333333333333,
+   "vet_1_7": 0.4815517241379311,
+   "pass_shape": 0.5344827586206896,
+   "pass_duration": 0.9827586206896551,
+   "pass_edge": 0.9827586206896551,
+   "pass_pixels": 0.9310344827586207,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 1.0
+  },
+  {
+   "snr_bin": "(10.0, 12.0]",
+   "n": 176,
+   "recovered": 0.6988636363636364,
+   "n_recovered": 123,
+   "vet_1_6": 0.6001219512195123,
+   "n_fpp": 15,
+   "fpp_pass": 1.0,
+   "vet_1_7": 0.6001219512195123,
+   "pass_shape": 0.6585365853658537,
+   "pass_duration": 0.983739837398374,
+   "pass_edge": 0.975609756097561,
+   "pass_pixels": 0.9426229508196722,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.991869918699187
+  },
+  {
+   "snr_bin": "(12.0, 15.0]",
+   "n": 203,
+   "recovered": 0.8817733990147784,
+   "n_recovered": 179,
+   "vet_1_6": 0.7745949720670392,
+   "n_fpp": 15,
+   "fpp_pass": 0.8666666666666667,
+   "vet_1_7": 0.6713156424581007,
+   "pass_shape": 0.8379888268156425,
+   "pass_duration": 0.994413407821229,
+   "pass_edge": 0.9832402234636871,
+   "pass_pixels": 0.9101123595505618,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.994413407821229
+  },
+  {
+   "snr_bin": "(15.0, 20.0]",
+   "n": 242,
+   "recovered": 0.9586776859504132,
+   "n_recovered": 232,
+   "vet_1_6": 0.8814116379310345,
+   "n_fpp": 15,
+   "fpp_pass": 1.0,
+   "vet_1_7": 0.8814116379310345,
+   "pass_shape": 0.9482758620689655,
+   "pass_duration": 1.0,
+   "pass_edge": 0.9741379310344828,
+   "pass_pixels": 0.9344978165938864,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9870689655172413
+  },
+  {
+   "snr_bin": "(20.0, 30.0]",
+   "n": 367,
+   "recovered": 0.9782016348773842,
+   "n_recovered": 359,
+   "vet_1_6": 0.8752437325905292,
+   "n_fpp": 15,
+   "fpp_pass": 0.8,
+   "vet_1_7": 0.7001949860724235,
+   "pass_shape": 0.9665738161559888,
+   "pass_duration": 1.0,
+   "pass_edge": 0.9749303621169917,
+   "pass_pixels": 0.9070422535211268,
+   "pass_asteroid": 0.9895833333333334,
+   "pass_catalogue": 0.9888579387186629
+  },
+  {
+   "snr_bin": "(30.0, 50.0]",
+   "n": 441,
+   "recovered": 0.9863945578231292,
+   "n_recovered": 435,
+   "vet_1_6": 0.896603448275862,
+   "n_fpp": 15,
+   "fpp_pass": 0.7333333333333333,
+   "vet_1_7": 0.6575091954022988,
+   "pass_shape": 0.9700460829493087,
+   "pass_duration": 0.9976958525345622,
+   "pass_edge": 0.9838709677419355,
+   "pass_pixels": 0.9282407407407407,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 0.9953917050691244
+  },
+  {
+   "snr_bin": "(50.0, 1000000000.0]",
+   "n": 149,
+   "recovered": 0.9798657718120806,
+   "n_recovered": 146,
+   "vet_1_6": 0.9360102739726027,
+   "n_fpp": 15,
+   "fpp_pass": 0.8,
+   "vet_1_7": 0.7488082191780823,
+   "pass_shape": 0.9863013698630136,
+   "pass_duration": 1.0,
+   "pass_edge": 0.9863013698630136,
+   "pass_pixels": 0.952054794520548,
+   "pass_asteroid": 1.0,
+   "pass_catalogue": 1.0
+  }
+ ]
+}

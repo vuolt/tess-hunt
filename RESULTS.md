@@ -743,7 +743,75 @@ stars silently used the wrong ID. With the fix, TIC 159540437 gained its
 
 ### 4. Vetting recall on injected transits
 
-INJECTION-VETTING-PLACEHOLDER
+Phase 2 injected 4,000 trapezoid transits into 200 random stars' raw
+PDCSAP flux, 20 per star, before any vetting rule existed. That makes them
+an independent test of rules tuned on 26 validation planets.
+`scripts/phase4_injection_vetting.py` sends the 2,673 that Phase 2
+recovered through the full vetting. There were no errors, and 2,670 were
+re-detected.
+
+- **Pixel checks.** The same transit is injected into that sector's
+  TESScut cutout as a PSF-shaped signal at the target's position, so the
+  pixel checks see a genuine on-target dip.
+- **Checks 1–4 and 6** run on every trial.
+- **Check 5 (SkyBoT)** runs on a random 400 of the 1,262 trials that pass
+  checks 1–4, since asteroids are independent of the injected signal. It
+  passes 99.75 % of them and enters the recall as that factor.
+- **Check 7 (TRICERATOPS)** runs on an SNR-stratified subset of 136 of the
+  trials that pass checks 1–6.
+
+The injection grid includes durations the host star cannot produce for any
+orbit, and check 2 correctly rejects those. So recall is reported for the
+**1,644 recovered injections with physically plausible durations**
+(`injection_vetting_recall_plausible.csv`). The version for all injections
+is `injection_vetting_recall_all.csv`.
+
+![injection vetting recall](plots/phase4/injection_vetting_recall.png)
+
+| expected SNR | detected (Phase 2) | pass checks 1–6, given detected | detected and pass 1–6 | FPP pass (subset) | detected and pass all 7 |
+|---|---|---|---|---|---|
+| 7–8 | 0.32 | 0.23 | 0.07 | 0.75 (n = 8) | 0.05 |
+| 8–9 | 0.43 | 0.43 | 0.18 | 0.85 (13) | 0.16 |
+| 9–10 | 0.67 | 0.52 | 0.35 | 0.93 (15) | 0.32 |
+| 10–12 | 0.70 | 0.60 | 0.42 | 1.00 (15) | 0.42 |
+| 12–15 | 0.88 | 0.77 | 0.68 | 0.87 (15) | 0.59 |
+| 15–20 | 0.96 | 0.88 | 0.84 | 1.00 (15) | 0.84 |
+| 20–30 | 0.98 | 0.88 | 0.86 | 0.80 (15) | 0.69 |
+| 30–50 | 0.99 | 0.90 | 0.89 | 0.73 (15) | 0.65 |
+| > 50 | 0.98 | 0.94 | 0.92 | 0.80 (15) | 0.74 |
+
+What the table shows:
+
+- **The shape test sets the low-SNR limit.** It passes 24 % of detected
+  injections at SNR 7–8, about 50 % at SNR 8–10, 66 % at 10–12 and ≥ 95 %
+  above 15. The validation planets showed the same thing: about half of
+  real single transits below SNR 10 are lost. The stricter "box not
+  preferred" rule, which was dropped in Phase 3, would have failed another
+  469 injections.
+- **Every other check costs little.**
+  - Pixels: 3–9 % of injections, at every SNR.
+  - Edge: about 2 %.
+  - Catalogue: 0.6 %. These were injections into stars in the EB catalogue,
+    and rejecting them is the intended behaviour.
+  - Asteroid: 0.25 %.
+- **Above SNR 15, the losses to FPP are deep injections, not lost
+  planets.** The injection depths reach 5 %, and TRICERATOPS prefers an
+  eclipsing binary for large implied radii:
+  - it passes 88–95 % of injections with R_p < 1.5 R_J (92 % of those with
+    SNR ≥ 12);
+  - it passes only 27 % of injections with R_p = 1.5–2.5 R_J.
+
+  Its stated purpose is to reject over-sized "planets", and it does.
+- **Overall, for a planet-sized single transit in S48 with a plausible
+  duration**, the full search and vetting pipeline recovers:
+  - about 1 in 6 at SNR 8–9;
+  - about 1 in 3 at SNR 9–10;
+  - about 60 % at SNR 12–15;
+  - about 85 % above SNR 15.
+
+  The 28 candidates are therefore a strongly incomplete sample below
+  SNR ~12. Reaching further means ranking by ΔBIC rather than cutting on
+  it.
 
 ### 5. Ranking
 
@@ -869,12 +937,16 @@ a real planet, but they did not drop it.
   MAST is the fallback.
 - **Catalogues are downloaded in bulk once:** the TOI list, the EB
   catalogues and the target lists.
-- **Totals for Phase 4:**
-  - 614 files downloaded;
-  - 283 TESScut cutouts;
-  - 76 Gaia queries;
+- **Totals for Phase 4, including injection vetting** (the contents of
+  `work/cache/`):
+  - 614 light-curve and catalogue files;
+  - 341 S3 listings;
+  - 389 TESScut cutouts;
+  - 347 MAST catalogue queries;
+  - 182 Gaia queries;
   - 102 VizieR queries;
-  - 205 SkyBoT queries.
+  - 401 SkyBoT queries;
+  - 1 Exoplanet Archive query (the TOI table).
 - **SkyBoT load was reduced.** The injection test was cut from 1,351 queries
   to a random 400 once it became clear this was slow for SkyBoT. Asteroids
   are independent of the injected signal, so the subsample measures check

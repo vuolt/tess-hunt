@@ -153,6 +153,7 @@ results/phase5/      candidates.md (plain-English write-up per candidate),
 Each candidate gets a verdict: strong, plausible or doubtful. A doubtful
 "submit" becomes "maybe" and a doubtful "maybe" is dropped. The checks are
 calibrated on known planets in the same sectors (`calibration.csv`).
+
 ## Phase 6: likely false positives among existing TOIs and CTOIs
 
 ```

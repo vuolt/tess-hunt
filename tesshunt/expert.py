@@ -339,13 +339,21 @@ def binarity_extras(gs):
     if ruwe is not None and ruwe > 1.4:
         flags.append("ruwe")
         notes.append(f"RUWE {ruwe:.2f}")
+    # Image doubling or elongation means a resolved or partly resolved companion:
+    # planets do orbit such stars (TOI-3837 b), so it only dilutes the depth (minor).
+    # A large RV swing means a stellar-mass companion on a short orbit (serious).
     return dict(flags=flags, notes=notes, ruwe=ruwe, multi_peak=mp, harmonic=gh,
                 rv_pvalue=pv, rv_gof=gof, rv_n=nrv,
-                serious=bool({"ipd_multi_peak", "rv_variable"} & set(flags)
-                             or ("ipd_harmonic" in flags)))
+                serious=bool("rv_variable" in flags))
 
 
-VSX_EB = ("EA", "EB", "EW", "ELL", "E")
+VSX_EB = ("EA", "EB", "EW", "ELL", "E")      # VSX eclipsing types; "EP" is a planetary transit
+
+
+def _vsx_eclipsing(typ: str) -> bool:
+    import re as _re
+    tokens = [x for x in _re.split(r"[+/|:() ]+", typ.upper()) if x]
+    return any(t in VSX_EB or t.startswith(("EA", "EB", "EW")) for t in tokens)
 
 
 def vsx(ra, dec, radius_arcsec=30):
@@ -388,9 +396,12 @@ def variability_check(gs, vsx_df):
             note += ")"
             if dist and dist.lower() != "nan":
                 note += f" at {float(dist):.0f}″"
+            if typ.upper().startswith("EP"):
+                notes.append(note.replace("(EP", "(EP: a known transiting planet"))
+                continue
             notes.append(note)
             flags.append("vsx")
-            if any(typ.startswith(k) for k in VSX_EB):
+            if _vsx_eclipsing(typ):
                 flags.append("vsx_eclipsing")
     if not notes:
         notes.append("not variable in Gaia DR3; no VSX entry within 30″")

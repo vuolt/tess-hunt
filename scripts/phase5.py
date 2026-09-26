@@ -18,12 +18,15 @@ false-flag rate. Checks (tesshunt/expert.py):
                vs the periods TESS allows; for a known period, the eccentricity needed
 
 Verdict per candidate:
-  doubtful   any serious flag: aperture test fails; GP SNR < 7 or GP depth < 0.5x
-             Phase 3; evolved host making R_p > 2 R_J; image doubling, a partly
-             resolved companion or RV variability; a catalogued eclipsing binary;
-             shape needing e > 0.5 (or R_p/R* > 0.3)
-  plausible  no serious flag but at least one minor one: evolved host, RUWE > 1.4,
-             other catalogued variability, eccentricity 0.3-0.5 needed, GP SNR 7-9
+  doubtful   any serious flag: aperture test fails; GP SNR < 5 or GP depth < 0.5x
+             Phase 3; evolved host making R_p > 2 R_J; Gaia RV variability (a stellar
+             companion on a short orbit); a catalogued eclipsing binary; shape needing
+             e > 0.7 even at the 1-sigma bound, or R_p/R* > 0.3
+  (thresholds calibrated on the validation planets: see results/phase5/calibration.csv)
+  plausible  no serious flag but at least one minor one: evolved host, dwarf status not
+             verifiable with Gaia, RUWE > 1.4 or a partly resolved companion, rotational
+             or other non-eclipsing variability, a median eccentricity > 0.3 needed,
+             GP SNR 5-7, one aperture deviating by 3-5 sigma
   strong     no flag at all
 
 Ranking update (from Phase 4):
@@ -53,8 +56,8 @@ WORK = os.path.join(ROOT, "work", "phase5")
 OUT = os.path.join(ROOT, "results", "phase5")
 PLOTS = os.path.join(ROOT, "plots", "phase5")
 RHO_ERR_FRAC = 0.25            # density uncertainty when Gaia FLAME has no mass/radius range
-GP_SNR_GOOD = 9.0
-E_MINOR, E_SERIOUS = 0.3, 0.5
+GP_SNR_SERIOUS = 5.0           # calibrated on the validation planets (lowest real: 6.6)
+E_MINOR, E_SERIOUS = 0.3, 0.7  # on the 1-sigma lower bound of the eccentricity needed
 RP_RATIO_MAX = 0.3
 
 
@@ -89,10 +92,24 @@ def _toi_periods():
     import io
     import urllib.parse
     from tesshunt import net
-    q = "select tid,toi,tfopwg_disp,pl_orbper from toi"
+    q = "select tid,toi,tfopwg_disp,pl_orbper,pl_tranmid from toi"
     url = ("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=" + urllib.parse.quote(q)
            + "&format=csv")
     return pd.read_csv(io.StringIO(net.get_text(url, "exoplanet_archive")))
+
+
+def _matching_period(tois, tic, t0_btjd, tol_d=0.5):
+    """Period of the TOI on this star whose ephemeris predicts this transit
+    (multi-planet hosts list several TOIs; only one belongs to the dip)."""
+    best = None
+    for r in tois[tois.tid == tic].itertuples():
+        if not (r.pl_orbper > 0 and np.isfinite(r.pl_tranmid)):
+            continue
+        n = (t0_btjd + 2457000.0 - r.pl_tranmid) / r.pl_orbper
+        off = abs(n - round(n)) * r.pl_orbper
+        if off < tol_d and (best is None or off < best[0]):
+            best = (off, float(r.pl_orbper))
+    return best[1] if best else None
 
 
 def targets(sectors):
@@ -117,10 +134,10 @@ def targets(sectors):
                 continue
             per = None
             if isinstance(r.joint_periods, str) and r.joint_periods:
-                per = [float(x) for x in r.joint_periods.split(";")][:2]
+                per = [float(x) for x in r.joint_periods.split(";")]      # every allowed alias
             if r.role == "control":
-                tp = tois[tois.tid == r.tic].pl_orbper.dropna()
-                per = [float(tp.iloc[0])] if len(tp) else per
+                mp = _matching_period(tois, r.tic, c["t0"])
+                per = [mp] if mp else per
             rows.append(dict(key=f"s{s:04d}_{r.tic}", tic=int(r.tic), sector=s, role=r.role,
                              category=r.category, reasons=r.reasons if isinstance(r.reasons, str) else "",
                              t0=c["t0"], t14=c["t14"], depth=c["depth"], snr=c["snr"], fpp=c["fpp"],
@@ -129,13 +146,13 @@ def targets(sectors):
         val = phase4.validation_planets(s)
         for c in val.to_dict("records"):
             disp = str(c.get("tfop_disp") or "")
-            tp = tois[tois.tid == c["tic"]].pl_orbper.dropna()
+            mp = _matching_period(tois, c["tic"], c["t0"])
             rows.append(dict(key=f"s{s:04d}_val_{c['key']}", tic=int(c["tic"]), sector=s,
                              role="false_positive" if ("FP" in disp or "FA" in disp) else "validation",
                              category="", reasons="", toi=c.get("toi"), tfop_disp=disp,
                              t0=c["t0"], t14=c["t14"], depth=c["depth"], snr=c["snr"], fpp=c["fpp"],
                              ra=c["ra"], dec=c["dec"], Tmag=c["Tmag"], rad=c["rad"], mass=c["mass"],
-                             periods=[float(tp.iloc[0])] if len(tp) else None, binarity_flags=""))
+                             periods=[mp] if mp else None, binarity_flags=""))
     df = pd.DataFrame(rows)
     # Gaia DR3 ids from the TIC (cached, one bulk query)
     from tesshunt import tic as tic_mod
@@ -223,15 +240,22 @@ def run_target(t):
         out = dict(rho_star=rho, rho_err=drho, rho_source=src)
         rng = np.random.default_rng(3)
         if t.get("periods"):
+            # One fit at the first period. For a fixed duration and impact parameter,
+            # T14 ~ (P / pi) (R*/a) sqrt((1+k)^2 - b^2), so a/R* ~ P and the density a
+            # circular orbit needs, rho ~ (a/R*)^3 / P^2, scales as P / P0.
             out["known"] = []
+            P0 = float(t["periods"][0])
+            o = ex.density_fit(tt[w], ff[w], t["t0"], t["t14"], t["depth"], cad, rho, drho,
+                               known_period=P0, nsteps=2000, burn=800)
+            rs0 = np.array(o.pop("rho_samples"))
+            o.pop("model", None)
+            star = np.clip(rng.normal(rho, drho, len(rs0)), 0.05 * rho, None)
             for P in t["periods"]:
-                o = ex.density_fit(tt[w], ff[w], t["t0"], t["t14"], t["depth"], cad, rho, drho,
-                                   known_period=P, nsteps=2000, burn=800)
-                rs = np.array(o.pop("rho_samples"))
-                ratio = rs / np.clip(rng.normal(rho, drho, len(rs)), 0.05 * rho, None)
+                rs = rs0 * (float(P) / P0)
+                ratio = rs / star
                 em = e_min_from_ratio(ratio)
-                o.pop("model", None)
-                out["known"].append(dict(P=P, rho_needed=o["rho"], ratio=[float(x) for x in np.percentile(ratio, [16, 50, 84])],
+                out["known"].append(dict(P=float(P), rho_needed=[float(x) for x in np.percentile(rs, [16, 50, 84])],
+                                         ratio=[float(x) for x in np.percentile(ratio, [16, 50, 84])],
                                          e_min=[float(x) for x in np.percentile(em, [16, 50, 84])],
                                          rp=o["rp"], b=o["b"], grazing_prob=o["grazing_prob"]))
         o = ex.density_fit(tt[w], ff[w], t["t0"], t["t14"], t["depth"], cad, rho, drho,
@@ -310,15 +334,16 @@ def assess(t, r):
         txt = (f"Re-analysed with a different noise model (a Gaussian process fitted together "
                f"with the transit): depth {gp['depth'] * 1e6:.0f} ppm ({ratio:.2f}× Phase 3), "
                f"significance {gp['snr']:.1f}σ (Phase 3: {t['snr']:.1f}).")
-        if gp["snr"] < ex.GP_SNR_MIN or ratio < ex.GP_DEPTH_MIN:
+        if gp["snr"] < GP_SNR_SERIOUS or ratio < ex.GP_DEPTH_MIN:
             serious.append("gp")
             txt += " **The dip is not robust to the choice of noise model.**"
-        elif gp["snr"] < GP_SNR_GOOD:
+        elif gp["snr"] < ex.GP_SNR_MIN:
             minor.append("gp_weak")
             txt += " It survives, but only moderately."
         lines["gp"] = txt
     st = r["star"]
     if st["cls"] == "dwarf" and st["radius_source"] == "TIC":
+        minor.append("star_unverified")
         lines["star"] = (f"Gaia DR3 has no evolutionary parameters for this star; its TIC radius "
                          f"({st['radius']:.2f} R☉) is consistent with a dwarf, giving a companion of "
                          f"about {st['rp_rj']:.2f} R_J ({st['rp_rj'] * 11.2:.0f} R⊕). Not independently confirmed.")
@@ -337,7 +362,13 @@ def assess(t, r):
     bx = r["binarity"]
     if bx["serious"]:
         serious.append("binarity")
-        lines["binarity"] = "**Gaia sees signs of a close companion:** " + "; ".join(bx["notes"]) + "."
+        lines["binarity"] = ("**Gaia's radial velocities swing by tens of km/s: a companion star on a "
+                             "short orbit, which could itself cause the dip.** " + "; ".join(bx["notes"]) + ".")
+    elif {"ipd_multi_peak", "ipd_harmonic"} & set(bx["flags"]):
+        minor.append("companion")
+        lines["binarity"] = ("Gaia sees a close, partly resolved companion star (" + "; ".join(bx["notes"])
+                             + "). Planets do orbit such stars, but its light dilutes the dip, so the "
+                             "object may be larger than estimated.")
     elif "ruwe" in bx["flags"]:
         minor.append("ruwe")
         lines["binarity"] = "Gaia's astrometry is noisier than for a single star (" + "; ".join(bx["notes"]) + \
@@ -361,23 +392,37 @@ def assess(t, r):
         sg = ph["single"]
         rp = sg["rp"][1]
         txt = ""
-        if ph.get("known"):
+        if ph.get("known") and len(ph["known"]) > 2:
+            ok = [k for k in ph["known"] if k["e_min"][1] <= E_MINOR]
+            best = min(ph["known"], key=lambda k: k["e_min"][1])
+            txt = (f"Fitted with this star's density ({ph['rho_source']}): of the {len(ph['known'])} "
+                   f"periods allowed by the second dip, {len(ok)} fit a near-circular orbit; the best is "
+                   f"P = {best['P']:.1f} d (eccentricity ≥ ~{best['e_min'][1]:.2f}).")
+            if best["e_min"][0] > E_SERIOUS:
+                serious.append("physical")
+                txt += " **No allowed period fits even a very eccentric orbit.**"
+            elif not ok:
+                minor.append("eccentric")
+                txt += " Every allowed period needs a fairly eccentric orbit."
+        elif ph.get("known"):
             parts = []
             worst_e = []
+            med_e = []
             for k in ph["known"]:
                 e16, e50, _ = k["e_min"]
                 parts.append(f"for P = {k['P']:.2f} d the shape needs {k['ratio'][1]:.1f}× the star's "
                              f"density on a circular orbit, i.e. an eccentricity of at least "
                              f"~{e50:.2f} (≥ {e16:.2f} at 1σ)")
                 worst_e.append(e16)
+                med_e.append(e50)
             txt = "Fitted with this star's density (" + ph["rho_source"] + "): " + "; ".join(parts) + "."
             best = min(worst_e)
             if best > E_SERIOUS:
                 serious.append("physical")
-                txt += " **No listed period fits a moderately eccentric orbit.**"
-            elif best > E_MINOR:
+                txt += " **No listed period fits even a very eccentric orbit (e ≤ 0.7).**"
+            elif min(med_e) > E_MINOR:
                 minor.append("eccentric")
-                txt += " This is possible but needs a fairly eccentric orbit."
+                txt += " This is possible but most likely needs a fairly eccentric orbit."
             elif len(ph["known"]) > 1:
                 es = [k["e_min"][1] for k in ph["known"]]
                 pref = ph["known"][int(np.argmin(es))]["P"]
@@ -406,6 +451,16 @@ def assess(t, r):
         lines["physical"] = txt
     verdict = "doubtful" if serious else ("plausible" if minor else "strong")
     return dict(lines=lines, serious=serious, minor=minor, verdict=verdict)
+
+
+def _distance(gs):
+    """Distance in parsecs from the Gaia parallax (only when it is well measured)."""
+    if not isinstance(gs, dict):
+        return None
+    plx, err = ex._num(gs.get("parallax")), ex._num(gs.get("parallax_error"))
+    if plx and plx > 0 and (err is None or plx / err > 5):
+        return 1000.0 / plx
+    return None
 
 
 def rerank(t, a):
@@ -443,6 +498,8 @@ def cmd_report(args):
                          gp_depth_ppm=r["gp"].get("depth", np.nan) * 1e6 if "depth" in r["gp"] else np.nan,
                          gp_snr=r["gp"].get("snr"), phase3_depth_ppm=t["depth"] * 1e6, phase3_snr=t["snr"],
                          star_class=r["star"]["cls"], radius_rsun=r["star"]["radius"],
+                         teff=r["star"].get("teff"),
+                         distance_pc=_distance(r.get("gaia")),
                          radius_source=r["star"]["radius_source"], rp_rj=r["star"]["rp_rj"] or r["star"]["rp_rj_tic"],
                          ruwe=r["binarity"].get("ruwe"), binarity_flags=";".join(r["binarity"]["flags"]),
                          variability_flags=";".join(r["variability"]["flags"]),
@@ -560,7 +617,7 @@ def ctoi(df, tg):
     """CTOI summaries for the Phase 5 "submit" list, built with the Phase 4 code
     and extended with the Phase 5 verdict."""
     import phase4
-    from phase4_report import ctoi_rows, gather
+    from phase4_report import classify, ctoi_rows, gather, period_summary
     sub = df[(df.role == "candidate") & (df.phase5 == "submit")]
     rows_all, md_all = [], []
     for s in sorted(sub.sector.unique()):
@@ -570,8 +627,10 @@ def ctoi(df, tg):
         for tic in sub[sub.sector == s].tic:
             c = cands[cands.tic == tic].iloc[0].to_dict()
             g = gather(c, P, s)
+            _, drop, maybe, good = classify(g)           # as Phase 4's rank() does
+            g.update(reasons_drop=drop, reasons_maybe=maybe, positives=good,
+                     period_summary=period_summary(g))
             g["category"], g["role"] = "submit", "candidate"
-            g["positives"] = g.get("positives") or []
             gs.append(g)
         for g in gs:                        # one at a time so each gets its own Phase 5 line
             rows, md = ctoi_rows([g], s)

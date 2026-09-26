@@ -1018,6 +1018,29 @@ first suspect for any S21-only failure (see TIC 16222047 below).
 7 of them have a second dip in another sector. The results are in
 `results/phase4/s0021/`.
 
+**Vetting recall on injected transits (S21).** This repeats the S48 test (Phase 4, section 4) on S21's own 4,000 injections:
+- 2,462 were recovered by the search and 2,458 re-detected, with no errors;
+- the table covers the 1,581 recovered injections with physically plausible durations (`injection_vetting_recall_plausible.csv`).
+
+![S21 injection vetting recall](plots/phase4/s0021/injection_vetting_recall.png)
+
+| expected SNR | detected (Phase 2) | pass checks 1–6, given detected | detected and pass 1–6 | FPP pass (subset) | detected and pass all 7 | S48, all 7 |
+|---|---|---|---|---|---|---|
+| 7–8 | 0.31 | 0.48 | 0.15 | 0.73 (n = 15) | 0.11 | 0.05 |
+| 8–9 | 0.43 | 0.32 | 0.14 | 0.64 (11) | 0.09 | 0.16 |
+| 9–10 | 0.55 | 0.65 | 0.36 | 0.77 (13) | 0.28 | 0.32 |
+| 10–12 | 0.78 | 0.61 | 0.47 | 0.87 (15) | 0.41 | 0.42 |
+| 12–15 | 0.88 | 0.70 | 0.62 | 1.00 (13) | 0.62 | 0.59 |
+| 15–20 | 0.97 | 0.84 | 0.81 | 1.00 (12) | 0.81 | 0.84 |
+| 20–30 | 0.96 | 0.81 | 0.78 | 1.00 (13) | 0.78 | 0.69 |
+| 30–50 | 0.98 | 0.86 | 0.84 | 0.70 (10) | 0.59 | 0.65 |
+| > 50 | 0.98 | 0.84 | 0.82 | 0.57 (14) | 0.47 | 0.74 |
+
+**Overall recall is similar to S48, but the losses come from different checks.**
+- **Pixel check:** at 30-min cadence it rejects 8–26 % of real (injected) on-target transits. In S48 it rejected 3–9 %. This is the same weakness the validation planets showed, and it is why a pixel-only failure in S21 (such as TIC 16222047) deserves a manual look.
+- **Shape test:** it is more lenient at low SNR (68 % pass at SNR 7–8 vs 24 % in S48). With a third of the points, a transit and a box fit about equally well.
+- **Above SNR 30:** the FPP subsets are small (10–14 trials each). As in S48, the losses there are deep injections that TRICERATOPS attributes to eclipsing binaries, not lost planets.
+
 ### Stars with dips in both sectors
 
 (`results/phase4/s0021/duotransits_with_s0048.md`)

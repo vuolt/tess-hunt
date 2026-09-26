@@ -35,12 +35,26 @@ sys.path.insert(0, ROOT)
 from tesshunt import ffi, vetting as v  # noqa: E402
 from tesshunt.survey import analyse  # noqa: E402
 
-SECTOR = 48
-TAG = f"s{SECTOR:04d}"
-WORK = os.path.join(ROOT, "work", "phase3")
 P2 = os.path.join(ROOT, "results", "phase2")
-OUT = os.path.join(ROOT, "results", "phase3")
-PLOTS = os.path.join(ROOT, "plots", "phase3")
+
+
+def sector_dirs(sector, phase):
+    """(work, results, plots) for a phase and sector. Sector 48 predates
+    multi-sector support and keeps the top-level folders; other sectors get
+    an sXXXX subfolder."""
+    sub = "" if sector == 48 else f"s{sector:04d}"
+    return (os.path.join(ROOT, "work", f"phase{phase}", sub),
+            os.path.join(ROOT, "results", f"phase{phase}", sub),
+            os.path.join(ROOT, "plots", f"phase{phase}", sub))
+
+
+def configure(sector):
+    global SECTOR, TAG, WORK, OUT, PLOTS
+    SECTOR, TAG = sector, f"s{sector:04d}"
+    WORK, OUT, PLOTS = sector_dirs(sector, 3)
+
+
+configure(48)
 CHECKS = ["shape", "duration", "edge", "pixels", "asteroid", "catalogue", "fpp"]
 
 
@@ -118,16 +132,8 @@ def lc_job(row):
     out = jpath("lc", k)
     if os.path.exists(out):
         return k, "cached"
-    tmp = os.path.join(WORK, "tmp")
-    os.makedirs(tmp, exist_ok=True)
-    path = os.path.join(tmp, f"{k}.fits")
     try:
-        try:
-            ffi.download(int(row["tic"]), SECTOR, path)
-            lc, _ = ffi.read(path)
-        finally:
-            if os.path.exists(path):
-                os.remove(path)
+        lc, _ = ffi.read(ffi.download(int(row["tic"]), SECTOR, cache=True))
         var, cfg, ss = analyse(lc)
         t, f = ss.time, ss.flat
         cad = float(np.median(np.diff(t)))
@@ -176,6 +182,18 @@ def pixel_dip(k):
     d = np.load(pz)
     dep, snr = v.local_dip_snr(d["tl"], d["fl"], tr["t0"], tr["t14_h"] / 24)
     return dep, snr, lc_depth
+
+
+def neighbours_now(k, pix):
+    """Re-run the neighbour test from the cached difference image, so rule
+    changes (e.g. NEIGHBOUR_MIN_PX) apply without re-downloading."""
+    pz = jpath("pix", k, "npz")
+    if not os.path.exists(pz):
+        return pix["neighbours"]
+    d = np.load(pz)
+    dep = max(load_json(jpath("lc", k))["shape"]["transit"]["depth_ppm"], 1) * 1e-6
+    return v.neighbour_test(d["diff"], d["noise"], d["oot"], float(d["x"]), float(d["y"]),
+                            [tuple(r) for r in d["nbs"]], dep)
 
 
 def edge_results(k, lc_snr=None):
@@ -294,7 +312,8 @@ def passed_pix(k, lc_snr=None):
     if r["status"] != "ok" or r["asteroid"].get("passed") is None or r["asteroid"].get("error"):
         return None
     ap_depth, ap_snr, lc_depth = pixel_dip(k)
-    pix = (v.pixel_passes(r["pixels"], lc_snr, ap_snr, ap_depth, lc_depth)
+    pixd = dict(r["pixels"], neighbours=neighbours_now(k, r["pixels"]))
+    pix = (v.pixel_passes(pixd, lc_snr, ap_snr, ap_depth, lc_depth)
            if lc_snr is not None else r["pixels"]["passed"])
     return pix and r["asteroid"]["passed"] and v.catalogue_check_passes(r["catalogue"])
 
@@ -355,10 +374,12 @@ def run_stage(fn, rows, procs, threads=False, label=""):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["lc", "pixels", "fpp", "report"])
+    ap.add_argument("--sector", type=int, default=48)
     ap.add_argument("--procs", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--retry-errors", action="store_true")
     args = ap.parse_args()
+    configure(args.sector)
     tg = targets()
     rows = tg.to_dict("records")
     if args.stage == "report":

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import time
 import warnings
 
 import numpy as np
 
 COLUMNS = ["ID", "Tmag", "Teff", "logg", "rad", "mass", "lumclass", "objType",
-           "disposition", "contratio", "ra", "dec"]
+           "disposition", "contratio", "ra", "dec", "GAIA", "GAIAmag", "pmRA", "pmDEC"]
 
 
 def query_ids(ids, chunk: int = 2000, retries: int = 4, progress=None):
@@ -17,17 +16,13 @@ def query_ids(ids, chunk: int = 2000, retries: int = 4, progress=None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         from astroquery.mast import Catalogs
+    from . import net
     ids = [int(i) for i in ids]
     parts = []
     for k in range(0, len(ids), chunk):
-        for attempt in range(retries):
-            try:
-                t = Catalogs.query_criteria(catalog="Tic", ID=ids[k:k + chunk])
-                break
-            except Exception:  # noqa: BLE001
-                if attempt == retries - 1:
-                    raise
-                time.sleep(2 ** (attempt + 1))
+        part = ids[k:k + chunk]
+        t = net.cached_call("mast_catalog", ("tic_ids", tuple(part)),
+                            lambda part=part: Catalogs.query_criteria(catalog="Tic", ID=part))
         parts.append(t[[c for c in COLUMNS if c in t.colnames]])
         if progress:
             progress(min(k + chunk, len(ids)), len(ids))

@@ -241,13 +241,7 @@ def fig_sensitivity(inj, path, table=None):
 # ---------------------------------------------------------------- top-N plots
 
 def star_search(tic, sector, tmp):
-    path = os.path.join(tmp, f"plot_{tic}.fits")
-    try:
-        ffi.download(tic, sector, path)
-        lc, _ = ffi.read(path)
-    finally:
-        if os.path.exists(path):
-            os.remove(path)
+    lc, _ = ffi.read(ffi.download(tic, sector, cache=True))
     var, cfg, ss = analyse(lc)
     return var, cfg, ss
 
@@ -341,7 +335,7 @@ def main():
     tag = f"s{args.sector:04d}"
     work = os.path.join(ROOT, "work")
     out = os.path.join(ROOT, "results", "phase2")
-    plots = os.path.join(ROOT, "plots", "phase2")
+    plots = os.path.join(ROOT, "plots", "phase2", "" if args.sector == 48 else tag)
     os.makedirs(out, exist_ok=True)
     os.makedirs(plots, exist_ok=True)
 

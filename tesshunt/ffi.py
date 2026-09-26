@@ -6,13 +6,10 @@ whole sector. Files are downloaded to a scratch path and deleted by the caller.
 
 from __future__ import annotations
 
-import os
-import time
-import urllib.request
-
 import numpy as np
 from astropy.io import fits
 
+from . import net
 from .lightcurves import SectorLC
 
 BASE = "https://archive.stsci.edu/hlsps/tess-spoc"
@@ -28,30 +25,29 @@ def target_list_url(sector: int) -> str:
     return f"{BASE}/target_lists/s{sector:04d}.csv"
 
 
-def lc_url(tic: int, sector: int) -> str:
+def lc_path(tic: int, sector: int) -> str:
     t = f"{tic:016d}"
-    return (f"{BASE}/s{sector:04d}/target/{t[0:4]}/{t[4:8]}/{t[8:12]}/{t[12:16]}/"
+    return (f"s{sector:04d}/target/{t[0:4]}/{t[4:8]}/{t[8:12]}/{t[12:16]}/"
             f"hlsp_tess-spoc_tess_phot_{t}-s{sector:04d}_tess_v1_lc.fits")
 
 
-def download(tic: int, sector: int, dest: str, retries: int = 4) -> str:
-    """Download one light curve to ``dest``; retries with backoff on network errors."""
-    url = lc_url(tic, sector)
-    for attempt in range(retries):
-        try:
-            tmp = dest + ".part"
-            with urllib.request.urlopen(url, timeout=60) as r, open(tmp, "wb") as fh:
-                fh.write(r.read())
-            os.replace(tmp, dest)
-            return dest
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
-                raise FileNotFoundError(url) from e
-            err = e
-        except Exception as e:  # noqa: BLE001  (timeouts, resets)
-            err = e
-        time.sleep(2 ** (attempt + 1))
-    raise RuntimeError(f"download failed after {retries} tries: {url}: {err}")
+def lc_url(tic: int, sector: int) -> str:
+    """MAST archive URL of a TESS-SPOC FFI light curve."""
+    return f"{BASE}/{lc_path(tic, sector)}"
+
+
+def lc_urls(tic: int, sector: int) -> list[str]:
+    """Where to look, in order: the AWS S3 mirror, then MAST."""
+    return [f"{net.S3}/mast/hlsp/tess-spoc/{lc_path(tic, sector)}", lc_url(tic, sector)]
+
+
+def download(tic: int, sector: int, dest: str | None = None, cache: bool = False) -> str:
+    """Fetch one TESS-SPOC light curve (S3 mirror first, MAST second).
+
+    cache=False writes to ``dest`` for the caller to delete (bulk sector
+    processing, where keeping ~50 GB per sector is not an option); cache=True
+    keeps the file in work/cache and returns that path (do not delete it)."""
+    return net.download(lc_urls(tic, sector), net.service_of, dest=dest, cache=cache)
 
 
 def read(path: str, bitmask: int = DEFAULT_BITMASK) -> tuple[SectorLC, dict]:

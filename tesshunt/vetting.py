@@ -23,12 +23,13 @@ from __future__ import annotations
 
 import os
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
 from scipy.stats import poisson
+
+from . import net
 
 CM_BIN_D = 0.25        # time bin for the sector-wide histogram (figure only)
 CM_RADIUS_DEG = 2.0    # neighbourhood for the local common-mode test
@@ -83,8 +84,8 @@ def fetch_tois(tics):
     url = ("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query="
            + urllib.parse.quote(q) + "&format=csv")
     try:
-        with urllib.request.urlopen(url, timeout=120) as r:
-            tois = pd.read_csv(r)
+        import io
+        tois = pd.read_csv(io.StringIO(net.get_text(url, "exoplanet_archive")))
     except Exception as e:  # noqa: BLE001
         print(f"TOI table unavailable ({e}); skipping cross-match")
         return pd.DataFrame(columns=["tid", "toi", "tfopwg_disp", "pl_orbper",
@@ -554,7 +555,10 @@ PIX_ARCSEC = 21.0          # TESS pixel scale
 CENTROID_MAX_PX = 1.0      # difference-image centroid offset allowed regardless of sigma
 CENTROID_SIGMA = 3.0       # offsets beyond CENTROID_MAX_PX fail only if this significant
 DIFF_MIN_SNR = 3.0         # below this the difference image cannot test anything
-NEIGHBOUR_PX = 2.0         # neighbours within this many pixels are tested
+NEIGHBOUR_PX = 2.0         # neighbours within this many pixels are tested...
+NEIGHBOUR_MIN_PX = 1.0     # ...but closer than this they are unresolved (PSF ~1-2 px):
+                           # single-pixel comparisons then mostly compare the target's
+                           # own core and wing (TOI-2180 b, S19)
 NEIGHBOUR_SIGMA = 3.0
 NEIGHBOUR_RATIO = 1.5
 PIXEL_CONFIRM_RATIO = 0.3  # dip SNR in the TESScut aperture vs. light-curve SNR
@@ -562,17 +566,35 @@ PIXEL_CONFIRM_MIN = 3.0
 PIXEL_DEPTH_RANGE = (0.4, 2.5)  # TESScut aperture depth / light-curve depth
 
 
+TESSCUT_API = "https://mast.stsci.edu/tesscut/api/v0.1/astrocut"
+
+
+def tesscut_hdul(ra, dec, sector, size=15):
+    """TESScut FFI cutout as an HDUList, via the cached, rate-limited net layer."""
+    import io
+    import zipfile
+    from astropy.io import fits
+    url = (f"{TESSCUT_API}?ra={ra:.6f}&dec={dec:.6f}&y={size}&x={size}"
+           f"&sector={int(sector)}")
+    raw = net.get(url, "tesscut", timeout=600)
+    if raw[:1] == b"{":            # JSON message instead of a zip: no data there
+        raise FileNotFoundError(f"TESScut sector {sector}: {raw[:200].decode(errors='replace')}")
+    with zipfile.ZipFile(io.BytesIO(raw)) as z:
+        names = [n for n in z.namelist() if n.endswith(".fits")]
+        if not names:
+            raise FileNotFoundError(f"no TESScut cutout for sector {sector}")
+        data = z.read(names[0])
+    return fits.open(io.BytesIO(data))
+
+
 def tesscut_cutout(ra, dec, sector, size=15):
-    """Download a TESScut FFI cutout; returns dict of arrays (nothing kept on disk)."""
+    """TESScut FFI cutout reduced to arrays (the raw cutout stays only in the cache)."""
     import warnings
-    from astropy.coordinates import SkyCoord
     from astropy.wcs import WCS
-    from astroquery.mast import Tesscut
     from .ffi import DEFAULT_BITMASK
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        hdul = Tesscut.get_cutouts(coordinates=SkyCoord(ra, dec, unit="deg"), size=size,
-                                   sector=sector)[0]
+        hdul = tesscut_hdul(ra, dec, sector, size)
         d = hdul[1].data
         time = np.asarray(d["TIME"], float)
         cube = np.asarray(d["FLUX"], float)
@@ -655,8 +677,9 @@ def neighbour_test(diff, noise, oot, x0, y0, neighbours, depth):
     ``neighbours``: iterable of (tic, x, y, dTmag). Only stars bright enough to
     produce the observed depth (dTmag <= -2.5 log10(depth) + 0.5) are tested.
     Compares the fractional depth in the pixel nearest the neighbour with the
-    pixel nearest the target. Neighbours sharing the target's pixel cannot be
-    separated here and are reported as unresolved (left to TRICERATOPS)."""
+    pixel nearest the target. Neighbours closer than NEIGHBOUR_MIN_PX (or in
+    the target's pixel) cannot be separated this way and are reported as
+    unresolved (left to TRICERATOPS)."""
     def frac(ix, iy):
         f = oot[iy, ix]
         if f <= 0:
@@ -675,7 +698,7 @@ def neighbour_test(diff, noise, oot, x0, y0, neighbours, depth):
         ix, iy = int(round(x)), int(round(y))
         if not (0 <= ix < nx and 0 <= iy < ny):
             continue
-        if (ix, iy) == (tx, ty):
+        if (ix, iy) == (tx, ty) or sep < NEIGHBOUR_MIN_PX:
             unresolved.append(int(tic))
             continue
         fn, sn = frac(ix, iy)
@@ -754,8 +777,11 @@ def tic_neighbours(ra, dec, wcs, tmag, radius_px=7.5):
     from astropy.coordinates import SkyCoord
     import astropy.units as u
     from astroquery.mast import Catalogs
-    t = Catalogs.query_region(SkyCoord(ra, dec, unit="deg"),
-                              radius=radius_px * PIX_ARCSEC * u.arcsec, catalog="TIC")
+    t = net.cached_call("mast_catalog", ("tic_region", round(ra, 6), round(dec, 6),
+                                         radius_px * PIX_ARCSEC),
+                        lambda: Catalogs.query_region(
+                            SkyCoord(ra, dec, unit="deg"),
+                            radius=radius_px * PIX_ARCSEC * u.arcsec, catalog="TIC"))
     t = t[np.isfinite(np.asarray(t["Tmag"], float))]
     x, y = wcs.all_world2pix(np.asarray(t["ra"], float), np.asarray(t["dec"], float), 0)
     rows = [(int(i), float(xx), float(yy), float(tm) - tmag, float(d))
@@ -782,25 +808,16 @@ ASTEROID_V_MAX = 19.0      # fainter objects cannot mimic a >~0.1 % dip at T <= 
 ASTEROID_R_ARCSEC = 60.0   # ~3 px: aperture plus the pixels used for its background
 
 
-def skybot_query(ra, dec, jd, radius_deg=0.2, loc="C57", timeout=60, retries=5):
+def skybot_query(ra, dec, jd, radius_deg=0.2, loc="C57"):
     """Known solar-system objects near (ra, dec) at JD (SkyBoT, TESS = C57).
 
-    Retries with backoff: the service resets connections under load."""
-    import time
+    Cached, rate-limited and retried with backoff by tesshunt.net."""
     q = {"-ep": f"{jd:.5f}", "-ra": ra, "-dec": dec, "-rd": radius_deg, "-mime": "text",
          "-output": "all", "-loc": loc, "-filter": 0, "-objFilter": "111",
          "-refsys": "EQJ2000"}
     url = ("https://ssp.imcce.fr/webservices/skybot/api/conesearch.php?"
            + urllib.parse.urlencode(q))
-    for attempt in range(retries):
-        try:
-            with urllib.request.urlopen(url, timeout=timeout) as r:
-                text = r.read().decode()
-            return parse_skybot(text)
-        except Exception:  # noqa: BLE001
-            if attempt == retries - 1:
-                raise
-            time.sleep(3 * 2 ** attempt)
+    return parse_skybot(net.get_text(url, "skybot"))
 
 
 def parse_skybot(text):
@@ -853,8 +870,8 @@ def load_catalogues(cache_dir):
                       ("tess_ebs", TESS_EBS)):
         path = os.path.join(cache_dir, name + ".csv")
         if not os.path.exists(path):
-            with urllib.request.urlopen(url, timeout=300) as r, open(path, "wb") as fh:
-                fh.write(r.read())
+            with open(path, "wb") as fh:
+                fh.write(net.get(url, net.service_of(url)))
         out[name] = pd.read_csv(path, low_memory=False)
     vpath = os.path.join(cache_dir, "villanova_tics.txt")
     if not os.path.exists(vpath):
@@ -870,16 +887,13 @@ def load_catalogues(cache_dir):
 def _fetch_villanova(path, max_pages=200):
     """TIC IDs listed in the Villanova TESS EB catalogue web pages."""
     import re
-    import time
     tics = set()
     for page in range(1, max_pages + 1):
-        with urllib.request.urlopen(VILLANOVA_EBS.format(page=page), timeout=60) as r:
-            html = r.read().decode()
+        html = net.get_text(VILLANOVA_EBS.format(page=page), "villanova")
         found = set(re.findall(r'href="(\d{10})"', html))
         tics |= found
         if not found or f"page={page + 1}" not in html:
             break
-        time.sleep(0.5)
     with open(path, "w") as fh:
         fh.write("\n".join(str(int(t)) for t in sorted(tics)))
 
@@ -926,8 +940,11 @@ def tic_background_file(ra, dec, path, field=TIC_BG_FIELD):
     import astropy.units as u
     from astroquery.mast import Catalogs
     radius = np.sqrt(field / np.pi)
-    t = Catalogs.query_region(SkyCoord(ra, dec, unit="deg"), radius=radius * u.deg,
-                              catalog="TIC").to_pandas()
+    t = net.cached_call("mast_catalog", ("tic_region", round(ra, 6), round(dec, 6),
+                                         radius * 3600),
+                        lambda: Catalogs.query_region(SkyCoord(ra, dec, unit="deg"),
+                                                      radius=radius * u.deg,
+                                                      catalog="TIC")).to_pandas()
     t = t[(t.objType == "STAR")]
     df = pd.DataFrame(dict(Mact=t.mass, logg=t.logg, logTe=np.log10(t.Teff), **{"[M/H]": 0.0},
                            TESS=t.Tmag, J=t.Jmag, H=t.Hmag, Ks=t.Kmag)).dropna()
@@ -945,13 +962,17 @@ class _CoordCatalogs:
 
     def query_object(self, name, radius, catalog):
         from astropy.coordinates import SkyCoord
-        t = self._c.query_region(SkyCoord(self.ra, self.dec, unit="deg"), radius=radius,
-                                 catalog=catalog)
+        t = net.cached_call("mast_catalog", ("tic_region", round(self.ra, 6),
+                                             round(self.dec, 6), str(radius), catalog),
+                            lambda: self._c.query_region(
+                                SkyCoord(self.ra, self.dec, unit="deg"), radius=radius,
+                                catalog=catalog))
         t.sort("dstArcSec")
         return t
 
     def query_region(self, *a, **k):
-        return self._c.query_region(*a, **k)
+        return net.cached_call("mast_catalog", ("query_region", repr(a), repr(sorted(k.items()))),
+                               lambda: self._c.query_region(*a, **k))
 
 
 GAIA_TAP_SYNC = "https://gea.esac.esa.int/tap-server/tap/sync"
@@ -974,10 +995,8 @@ class _GaiaHTTPS:
     @classmethod
     def launch_job(cls, adql, verbose=False):
         from astropy.io import ascii as asc
-        data = urllib.parse.urlencode({"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
-                                       "QUERY": adql}).encode()
-        with urllib.request.urlopen(GAIA_TAP_SYNC, data=data, timeout=300) as r:
-            text = r.read().decode()
+        text = net.get_text(GAIA_TAP_SYNC, "gaia", data={
+            "REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv", "QUERY": adql})
         return cls._Job(asc.read(text, format="csv", fill_values=[("", "nan")]))
 
     launch_job_async = launch_job
@@ -992,10 +1011,9 @@ class _TesscutSearch:
 
     def download_all(self, cutout_size):
         from types import SimpleNamespace
-        from astroquery.mast import Tesscut
         size = cutout_size[0] if isinstance(cutout_size, (tuple, list)) else cutout_size
-        hduls = Tesscut.get_cutouts(coordinates=self.target, size=size, sector=self.sector)
-        return [SimpleNamespace(hdu=h) for h in hduls]
+        h = tesscut_hdul(self.target.ra.deg, self.target.dec.deg, self.sector, size)
+        return [SimpleNamespace(hdu=h)]
 
 
 def triceratops_fpp(tic, ra, dec, sector, time_from_t0, flux, flux_err, depth, ap_abs,
@@ -1046,3 +1064,30 @@ def triceratops_fpp(tic, ra, dec, sector, time_from_t0, flux, flux_err, depth, a
 def fpp_check(res):
     ok = res["fpp"] < FPP_MAX and res["nfpp"] < NFPP_MAX
     return dict(passed=bool(ok), **res)
+
+
+def pixel_checks(ra, dec, tmag, sector, t0, t14, depth, lc_snr, size=15):
+    """Check 4 end to end for one dip: TESScut cutout -> difference image ->
+    centroid, neighbour and in-pixel confirmation tests. ``t14`` in days,
+    ``depth`` fractional. Returns the results plus the arrays for plotting."""
+    cut = tesscut_cutout(ra, dec, sector, size)
+    di = difference_image(cut["time"], cut["cube"], t0, t14)
+    if di is None:
+        return dict(passed=None, error="not enough cadences around the dip")
+    diff, noise, oot, n_in, n_oot = di
+    nbs = tic_neighbours(ra, dec, cut["wcs"], tmag)
+    ct = centroid_test(diff, noise, cut["x"], cut["y"])
+    nt = neighbour_test(diff, noise, oot, cut["x"], cut["y"], nbs, depth)
+    ap = aperture_mask(oot, cut["x"], cut["y"])
+    sel = np.abs(cut["time"] - t0) < max(2.5 * t14, 0.5)
+    tl = cut["time"][sel]
+    fl = cut["cube"][sel][:, ap].sum(axis=1)
+    fl = fl / np.median(fl)
+    ap_depth, ap_snr = local_dip_snr(tl, fl, t0, t14)
+    conf = pixel_confirm_check(ap_snr, lc_snr, ap_depth, depth)
+    ap_abs = [[cut["col0"] + int(ix), cut["row0"] + int(iy)] for iy, ix in zip(*np.nonzero(ap))]
+    return dict(passed=bool(ct["passed"] and nt["passed"] and conf["passed"]), centroid=ct,
+                neighbours=nt, confirm=conf, ap_depth_ppm=ap_depth * 1e6, ap_snr=ap_snr,
+                n_in=n_in, n_oot=n_oot, ap_abs=ap_abs,
+                arrays=dict(diff=diff, noise=noise, oot=oot, ap=ap, x=cut["x"], y=cut["y"],
+                            tl=tl, fl=fl, nbs=np.array(nbs, float).reshape(-1, 4)))

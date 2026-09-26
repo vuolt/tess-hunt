@@ -15,7 +15,6 @@ import csv
 import os
 import sys
 import time
-import urllib.request
 from multiprocessing import Pool
 
 import numpy as np
@@ -42,7 +41,12 @@ def cmd_select(args):
     p = paths(args.sector)
     os.makedirs(WORK, exist_ok=True)
     if not os.path.exists(p["targets"]):
-        urllib.request.urlretrieve(ffi.target_list_url(args.sector), p["targets"])
+        from tesshunt import net
+        name = f"target_lists/s{args.sector:04d}.csv"
+        src = net.download([f"{net.S3}/mast/hlsp/tess-spoc/{name}", ffi.target_list_url(args.sector)],
+                           net.service_of)
+        with open(src, "rb") as a, open(p["targets"], "wb") as b:
+            b.write(a.read())
     ids = np.loadtxt(p["targets"], delimiter=",", skiprows=1, usecols=0, dtype=np.int64)
     print(f"S{args.sector}: {len(ids)} TESS-SPOC targets")
 

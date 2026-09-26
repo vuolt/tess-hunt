@@ -13,7 +13,9 @@ import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from phase3_vet import CHECKS, OUT, PLOTS, edge_results, jpath, load_json, pixel_dip  # noqa: E402
+import phase3_vet as p3v  # noqa: E402
+from phase3_vet import (CHECKS, edge_results, jpath, load_json,  # noqa: E402
+                        neighbours_now, pixel_dip)
 from tesshunt import vetting as v  # noqa: E402
 from tesshunt.plotting import binned  # noqa: E402
 
@@ -56,7 +58,9 @@ def collect(tg):
             o.update(edge_pixels=e_px, edge=bool(e_lc or e_px))
         o["pix_status"] = px["status"] if px else "not run"
         if px and px["status"] == "ok":
-            p, c, n = px["pixels"], px["pixels"]["centroid"], px["pixels"]["neighbours"]
+            n = neighbours_now(k, px["pixels"])
+            p = dict(px["pixels"], neighbours=n)
+            c = p["centroid"]
             ap_depth, ap_snr, lc_depth = pixel_dip(k)
             conf = v.pixel_confirm_check(ap_snr, r["snr"], ap_depth, lc_depth)
             ast = px["asteroid"]
@@ -206,7 +210,7 @@ def sheet(row, path):
     ax.set_axis_off()
     lines = check_lines(row)
     for i, (name, ok, detail) in enumerate(lines):
-        y = 0.97 - i * 0.097
+        y = 0.97 - i * (0.097 if len(lines) <= 10 else 0.088)
         col = {True: "C2", False: "C3", None: "0.5"}[ok]
         mark = {True: "PASS", False: "FAIL", None: "n/a"}[ok]
         ax.text(0.0, y, name, fontsize=9, transform=ax.transAxes, weight="bold")
@@ -256,7 +260,8 @@ def check_lines(r):
         ("7 TRICERATOPS", _b(r.get("fpp")),
          f"FPP {f(r.get('fpp_value'), '.3f')}  NFPP {f(r.get('nfpp_value'), '.3f')}  "
          f"P {f(r.get('p_lo'), '.0f')}-{f(r.get('p_hi'), '.0f')} d"),
-    ]
+    ] + ([("Binarity (Gaia DR3)", _b(r.get("binarity_ok")), r["binarity_line"][:110])]
+         if r.get("binarity_line") else [])
 
 
 def review_notes(r):
@@ -293,6 +298,7 @@ def funnel_figure(fn, path):
 
 
 def report(tg):
+    OUT, PLOTS = p3v.OUT, p3v.PLOTS
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(os.path.join(PLOTS, "sheets"), exist_ok=True)
     os.makedirs(os.path.join(PLOTS, "validation"), exist_ok=True)
@@ -303,7 +309,7 @@ def report(tg):
         if lc and lc["status"] == "ok":
             for m, b in lc["shape"]["bic"].items():
                 df.loc[i, f"bic_{m}"] = b - lc["shape"]["bic"]["transit"]
-    df.to_csv(os.path.join(OUT, "vetting_all.csv"), index=False, float_format="%.5g")
+    df.to_csv(os.path.join(OUT, "vetting_all.csv"), index=False, float_format="%.8g")
 
     cand = df[df.is_candidate]
     fn, surv = funnel(cand)
@@ -320,7 +326,7 @@ def report(tg):
             "fit_t14_h", "fit_b", "snr", "dbic_alt", "dbic_box", "p_b0_d", "fpp_value",
             "nfpp_value", "p_lo", "p_hi", "centroid_offset_px", "n_unresolved", "tois", "ctois",
             "new", "review_notes"]
-    surv[cols].to_csv(os.path.join(OUT, "shortlist.csv"), index=False, float_format="%.5g")
+    surv[cols].to_csv(os.path.join(OUT, "shortlist.csv"), index=False, float_format="%.8g")
     for _, r in surv.iterrows():
         sheet(r, os.path.join(PLOTS, "sheets", f"{int(r.shortlist_rank):02d}_tic{r.tic}.png"))
 

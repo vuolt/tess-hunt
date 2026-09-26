@@ -909,8 +909,11 @@ def load_catalogues(cache_dir):
                       ("tess_ebs", TESS_EBS)):
         path = os.path.join(cache_dir, name + ".csv")
         if not os.path.exists(path):
-            with open(path, "wb") as fh:
+            # atomic: parallel workers must never see a half-written file
+            tmp = f"{path}.{os.getpid()}.tmp"
+            with open(tmp, "wb") as fh:
                 fh.write(net.get(url, net.service_of(url)))
+            os.replace(tmp, path)
         out[name] = pd.read_csv(path, low_memory=False)
     vpath = os.path.join(cache_dir, "villanova_tics.txt")
     if not os.path.exists(vpath):
@@ -933,8 +936,10 @@ def _fetch_villanova(path, max_pages=200):
         tics |= found
         if not found or f"page={page + 1}" not in html:
             break
-    with open(path, "w") as fh:
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "w") as fh:
         fh.write("\n".join(str(int(t)) for t in sorted(tics)))
+    os.replace(tmp, path)
 
 
 def catalogue_check(tic, cats):

@@ -145,15 +145,34 @@ A local web app for someone with no astronomy background. It reads the
 pipeline's results and walks you through getting feedback on a candidate and
 preparing an ExoFOP submission.
 
-### Setup
+### Start it with a double-click
+
+- **macOS:** double-click **`Start tess-hunt.command`** in Finder.
+- **Windows:** double-click **`Start tess-hunt.bat`**.
+
+A terminal window opens, and then the app opens in your browser at
+http://localhost:8501.
+
+- **First start:** it creates a Python environment in `.venv` and installs the
+  requirements, which takes several minutes.
+- **Later starts:** the app opens in a few seconds. The requirements are
+  reinstalled only when `requirements.txt` changes.
+- **To stop the app:** close the terminal window.
+- **Python:** 3.10 or newer is needed. If it's missing, the window says so and
+  links to python.org.
+- **macOS, if the repository was downloaded as a ZIP:** macOS may refuse to run
+  a downloaded script the first time. Right-click the file, choose **Open**, then
+  confirm. After that, a double-click works. A `git clone` doesn't have this
+  problem.
+- **macOS, "permission denied":** run `chmod +x "Start tess-hunt.command"` once.
+
+### Or from a terminal
 
 ```
 python -m venv .venv && . .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app/main.py
 ```
-
-The app opens in your browser at http://localhost:8501.
 
 ### Pages
 

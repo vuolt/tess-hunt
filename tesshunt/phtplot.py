@@ -3,7 +3,8 @@
 PHT shows the whole sector as it comes from the SPOC pipeline: normalised
 PDCSAP brightness (not detrended) against days since the start of the
 sector, one dot per cadence. The same view makes a candidate easy to discuss
-on the PHT forum. A second panel zooms in on the dip, with 30-min bins.
+on the PHT forum. A second panel zooms in on the dip, averaged over at least two measurements
+(30 min for 10-min data).
 """
 
 from __future__ import annotations
@@ -61,8 +62,11 @@ def pht_plot(time, flux, t0: float, t14_d: float, depth: float, title: str, path
     w = max(zoom_d, 3 * t14_d)
     m = np.abs(time - t0) < w
     a2.plot((time[m] - t0) * 24, flux[m], ".", ms=2.5, color=DOT, alpha=0.6, label="each measurement")
-    tb, fb = _binned(time[m], flux[m], 0.5 / 24)
-    a2.plot((tb - t0) * 24, fb, "o-", ms=4, lw=1, color=BIN, label="30-min average")
+    cad = float(np.median(np.diff(time))) if len(time) > 1 else 0.5 / 48
+    width = max(0.5 / 24, 2.5 * cad)             # at least two measurements per average
+    tb, fb = _binned(time[m], flux[m], width)
+    lab = f"{width * 1440:.0f}-min average"
+    a2.plot((tb - t0) * 24, fb, "o-", ms=4, lw=1, color=BIN, label=lab)
     a2.axvspan(-t14_d * 12, t14_d * 12, color=MARK, alpha=0.45, lw=0, zorder=0)
     a2.axhline(1, color="0.6", lw=0.8, ls=":")
     if m.any():

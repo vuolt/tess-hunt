@@ -18,7 +18,12 @@ DROP if any of
      baseline on one side (vetting.one_sided_check). Added after rules D1-D4
      and S1-S5 had been applied, when TIC 27068699 turned out to be a
      single-pixel jump; checked against the validation planets before use
-     (results/phase4/confirm_validation.csv).
+     (results/phase4/confirm_validation.csv);
+  D6 a period allowed by the second dips matches a Gaia DR3 two-body orbital
+     period within 2 sigma: the "transiting" body is then the Gaia-detected
+     companion, which at these distances is stellar. Also added after the
+     first ranking (TIC 198206622: 202.7 d from its dips, 202.2 +- 1.9 d
+     from Gaia).
 
 SUBMIT (as CTOI) if not dropped and all of
   S1 Phase 3 FPP < 0.1 and no Phase 3 review notes other than
@@ -52,6 +57,7 @@ RSUN_RJUP = 9.731
 RJUP_REARTH = 11.209
 CONFIRM_SNR = 5.0
 CONFIRM_MIN_RATIO = 0.3
+NSS_MATCH_SIGMA = 2.0
 R_DROP = 2.0
 R_SUBMIT = 1.8
 FPP_SUBMIT = 0.1
@@ -152,6 +158,16 @@ def classify(g):
         reasons_drop.append("D5 flux step, not a dip: in-transit level continues one side's baseline in "
                             + ", ".join(f"{m['kind']} ({m['step']['pre']:+.2f}/{m['step']['post']:+.2f} of "
                                         "the depth before/after)" for m in stepped))
+    # D6: the dips repeat on the Gaia binary orbit
+    for o in bn.get("nss") or []:
+        po, pe = o.get("period"), o.get("period_error")
+        if not (po and po == po):
+            continue
+        tol = NSS_MATCH_SIGMA * max(pe if pe == pe and pe else 0, 0.01 * po)
+        hit = [p for p in (g.get("joint_periods") or []) if abs(p - po) < tol]
+        if hit:
+            reasons_drop.append(f"D6 dips repeat on the Gaia {o['nss_solution_type']} orbit: "
+                                f"P = {hit[0]:.2f} d from the dips vs {po:.1f} ± {pe:.1f} d (Gaia DR3)")
     # D2
     if "very long dip" in notes and ("grazing" in notes or "centroid offset" in notes):
         reasons_drop.append("D2 very long and V-shaped/off-centre: variability or systematics signature")

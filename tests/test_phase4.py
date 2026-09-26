@@ -218,3 +218,12 @@ def test_one_sided_check_flags_step():
     f = np.where(t > 2.0 + 0.125, f * 1.01, f)         # flux jumps up at the "egress"
     r = v.one_sided_check(t, f, 2.0, 0.25, 5e-3)
     assert r["one_sided"] is True and abs(r["pre"]) < 0.25 and r["post"] > 1.5
+
+
+def test_rank_rule_d6_gaia_orbit():
+    from phase4_report import classify
+    nss = [dict(nss_solution_type="Orbital", period=202.2, period_error=1.9)]
+    bin_host = dict(flags=["gaia_nss"], host_binary=True, summary="NSS", ruwe=1.6, nss=nss)
+    d = dict(sector=56, t0=0.0, partial=False, snr=10.0, kind="qlp")
+    assert classify(_g(binarity=bin_host, duos=[d], joint_periods=[202.66]))[0] == "drop"
+    assert classify(_g(binarity=bin_host, duos=[d], joint_periods=[101.3]))[0] == "maybe"

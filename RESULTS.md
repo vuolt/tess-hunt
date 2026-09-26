@@ -386,14 +386,23 @@ Candidates (2,627; tier A first as requested) through the checks in order:
 | 1 Shape | 1,704 | 923 | 451 | 472 |
 | 2 Duration | 170 | 753 | 369 | 384 |
 | 3 Edge | 250 | 503 | 307 | 196 |
-| 4 Pixels | 301 | 202 | 83 | 119 |
-| 5 Asteroids | 1 | 201 | 82 | 119 |
-| 6 Catalogues | 13 (12 EBs, 1 TOI FP) | 188 | 79 | 109 |
-| 7 FPP | 134 | **54** | 43 | 11 |
+| 4 Pixels | 299 | 204 | 85 | 119 |
+| 5 Asteroids | 1 | 203 | 84 | 119 |
+| 6 Catalogues | 13 (12 EBs, 1 TOI FP) | 190 | 81 | 109 |
+| 7 FPP | 136 | **54** | 43 | 11 |
 
 **54 survivors: 28 new and 26 already known as TOIs or CTOIs.** There were
 no errors in the final run; transient MAST/SkyBoT failures were retried.
 `plots/phase3/funnel.png` shows the same funnel.
+
+*Updated in Phase 4:* the neighbour check (4b) now ignores TIC neighbours
+less than 1 px from the target (`NEIGHBOUR_MIN_PX`). Their pixel is the
+target's own PSF core, so the comparison was meaningless. It had wrongly
+failed TOI-2180 b's Sector 19 transit, where the companion is 0.5 px away.
+Re-evaluating Phase 3 from cache changed 14 neighbour results. Two more
+candidates reached the FPP step, and both failed it, so the shortlist is
+unchanged. The numbers above are the updated ones (pixels removed 299 instead
+of 301, FPP 136 instead of 134, neighbour failures 62 instead of 76).
 
 Each check applied on its own, to the set it ran on:
 
@@ -403,11 +412,11 @@ Each check applied on its own, to the set it ran on:
 | duration | 2,627 | 488 |
 | edge | 2,627 | 1,241 |
 | centroid (4a) | 767 passing 1–2 | 60 |
-| neighbours (4b) | 767 | 76 |
+| neighbours (4b) | 767 | 62 |
 | in pixels (4c) | 767 | 523 |
 | asteroids | 767 | 47 (e.g. (146) Lucina, V = 12.4, 9″ from TIC 139415069) |
 | catalogues | 767 | 17 |
-| FPP | 285 passing 1–6 | 200 |
+| FPP | 287 passing 1–6 | 202 |
 
 The shape test and the in-pixels check do most of the work. Most shape
 failures are best fit by the sudden-drop/recovery or step models. Of the

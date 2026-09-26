@@ -63,11 +63,15 @@ def gaia_target(source_id: int) -> dict | None:
             return None
         df = _gaia(f"SELECT {TARGET_COLS} FROM gaiadr3.gaia_source WHERE source_id = "
                    f"{int(m.dr3_source_id.iloc[0])}")
-    return None if df.empty else df.iloc[0].to_dict()
+    if df.empty:
+        return None
+    rec = df.iloc[0].to_dict()                 # an all-numeric row comes back as float64,
+    rec["source_id"] = int(df.source_id.iloc[0])   # which cannot hold a 19-digit source_id
+    return rec
 
 
 def gaia_nss(source_id: int) -> list[dict]:
-    df = _gaia("SELECT nss_solution_type, period, period_error, eccentricity FROM "
+    df = _gaia("SELECT nss_solution_type, period, period_error, eccentricity, eccentricity_error FROM "
                f"gaiadr3.nss_two_body_orbit WHERE source_id = {int(source_id)}")
     return df.to_dict("records")
 
@@ -179,4 +183,5 @@ def binarity(tic_row: dict) -> dict:
     wds = wds_pairs(tic_row["ra"], tic_row["dec"])
     res = assess(target, nss, nb, eb, wds)
     res["gaia"] = target
+    res["nss"] = nss
     return res

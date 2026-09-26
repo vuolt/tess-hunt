@@ -6,7 +6,7 @@
 
 - **Candidates:** 9,615 TOIs and CTOIs without a final disposition. 8,333 of them have a period, which the checks need. The validation sets come from the same tables: 1,403 confirmed or known planets (CP, KP) and 1,410 known false positives (FP, FA).
 - **Gaia orbit check:** applied to every candidate with a period. It used 12,432 Gaia DR3 source IDs, queried in batches.
-- **Light-curve checks:** 1,128 candidates had usable TESS light curves in at least one sector: all the Gaia-matched candidates, random samples of about 300 from each group, and any others checked in later runs. So far 506 of the 8,333 unresolved candidates with a period have been checked (466 had usable data); each is recorded in `lc_checks.csv.gz` and never checked twice.
+- **Light-curve checks:** 1,677 candidates had usable TESS light curves in at least one sector: all the Gaia-matched candidates, random samples of about 300 from each group, and any others checked in later runs. So far 506 of the 8,333 unresolved candidates with a period have been checked (466 had usable data); each is recorded in `lc_checks.csv.gz` and never checked twice.
 - **Tables:** ExoFOP TOI and CTOI lists as downloaded on 2026-09-26.
 
 ## Validation: how often each check flags known planets
@@ -22,18 +22,20 @@ Light-curve checks are chosen on the first random samples. The held-out samples,
 | density (catalogue): transit > 3x longer than the star's density allows | 0/1403 (0.0%) | 14/1410 (1.0%) | – | – | no |
 | density (catalogue): transit > 2x longer than the star's density allows | 1/1403 (0.1%) | 29/1410 (2.1%) | – | – | no |
 | density (catalogue): transit > 1.5x longer than the star's density allows | 3/1403 (0.2%) | 73/1410 (5.2%) | – | – | **yes** |
-| odd_even: 3 sigma | 56/298 (18.8%) | 75/273 (27.5%) | 2/12 (16.7%) | 4/10 (40.0%) | no |
-| odd_even: 5 sigma | 18/298 (6.0%) | 43/273 (15.8%) | 1/12 (8.3%) | 0/10 (0.0%) | no |
-| odd_even: 5 sigma and >= 20 % different | 10/298 (3.4%) | 33/273 (12.1%) | 0/12 (0.0%) | 0/10 (0.0%) | **yes** |
-| secondary: SNR >= 7 | 33/298 (11.1%) | 90/273 (33.0%) | 1/12 (8.3%) | 2/10 (20.0%) | no |
-| secondary: SNR >= 7 and >= 10 % of the transit depth | 25/298 (8.4%) | 81/273 (29.7%) | 0/12 (0.0%) | 1/10 (10.0%) | no |
-| secondary: SNR >= 10 and >= 10 % of the transit depth | 15/298 (5.0%) | 64/273 (23.4%) | 0/12 (0.0%) | 1/10 (10.0%) | no |
-| secondary: SNR >= 7, phase 0.5 +- 0.1, > 3 sigma deeper than any planet | 5/298 (1.7%) | 32/273 (11.7%) | 1/12 (8.3%) | 1/10 (10.0%) | **yes** |
-| secondary: SNR >= 7, phase 0.5 +- 0.05, > 3 sigma deeper than any planet | 2/298 (0.7%) | 25/273 (9.2%) | 1/12 (8.3%) | 1/10 (10.0%) | no |
-| secondary: SNR >= 7, phase 0.5 +- 0.02, > 3 sigma deeper than any planet | 2/298 (0.7%) | 22/273 (8.1%) | 0/12 (0.0%) | 1/10 (10.0%) | no |
-| centroid: 3 sigma | 116/298 (38.9%) | 166/273 (60.8%) | 7/12 (58.3%) | 6/10 (60.0%) | no |
-| centroid: 5 sigma | 87/298 (29.2%) | 150/273 (54.9%) | 5/12 (41.7%) | 4/10 (40.0%) | no |
-| centroid: 5 sigma and source >= 1 px away | 0/298 (0.0%) | 21/273 (7.7%) | 0/12 (0.0%) | 0/10 (0.0%) | **yes** |
+| odd_even: 3 sigma | 56/298 (18.8%) | 75/273 (27.5%) | 46/299 (15.4%) | 83/272 (30.5%) | no |
+| odd_even: 5 sigma | 18/298 (6.0%) | 43/273 (15.8%) | 20/299 (6.7%) | 50/272 (18.4%) | no |
+| odd_even: 5 sigma and >= 20 % different | 10/298 (3.4%) | 33/273 (12.1%) | 14/299 (4.7%) | 32/272 (11.8%) | **yes** |
+| secondary: SNR >= 7 | 33/298 (11.1%) | 90/273 (33.0%) | 45/299 (15.1%) | 92/272 (33.8%) | no |
+| secondary: SNR >= 7 and >= 10 % of the transit depth | 25/298 (8.4%) | 81/273 (29.7%) | 34/299 (11.4%) | 73/272 (26.8%) | no |
+| secondary: SNR >= 10 and >= 10 % of the transit depth | 15/298 (5.0%) | 64/273 (23.4%) | 24/299 (8.0%) | 53/272 (19.5%) | no |
+| secondary: SNR >= 7, phase 0.5 +- 0.1, > 3 sigma deeper than any planet | 5/298 (1.7%) | 32/273 (11.7%) | 9/299 (3.0%) | 29/272 (10.7%) | **yes** |
+| secondary: SNR >= 7, phase 0.5 +- 0.05, > 3 sigma deeper than any planet | 2/298 (0.7%) | 25/273 (9.2%) | 7/299 (2.3%) | 25/272 (9.2%) | no |
+| secondary: SNR >= 7, phase 0.5 +- 0.02, > 3 sigma deeper than any planet | 2/298 (0.7%) | 22/273 (8.1%) | 2/299 (0.7%) | 20/272 (7.4%) | no |
+| centroid: 3 sigma | 116/298 (38.9%) | 166/273 (60.8%) | 107/299 (35.8%) | 161/272 (59.2%) | no |
+| centroid: 5 sigma | 87/298 (29.2%) | 150/273 (54.9%) | 86/299 (28.8%) | 142/272 (52.2%) | no |
+| centroid: 5 sigma and source >= 1 px away | 0/298 (0.0%) | 21/273 (7.7%) | 4/299 (1.3%) | 17/272 (6.2%) | **yes** |
+
+**On the held-out known planets** the light-curve checks in use flag 4.7% (odd/even), 3.0% (secondary), 1.3% (centroid). All stay within the 5% limit, but odd/even, secondary flag more planets than on the sample they were chosen on, so a candidate flagged by one of those alone could still be a planet.
 
 The Gaia check found the Gaia orbit of the transiting object itself, with a substellar companion mass, on 3 known planets (WASP-18 b, the brown dwarf TOI-503 b and others). Such matches are *not* counted as false positives. If Gaia periods were unrelated to the transits, shuffling them among the 472 candidates that have a Gaia solution gives 4.7 ± 2.1 matches by chance.
 
@@ -43,45 +45,45 @@ The Gaia check found the Gaia orbit of the transiting object itself, with a subs
 
 How they were flagged (a candidate can be flagged by more than one check):
 
-- 467 by the size check: size.
+- 467 by the size check: the object would be too big to be a planet.
 - 181 by the Gaia orbit check: Gaia sees a companion star (or an eclipsing binary) on the transit's period.
-- 158 by the density check: density.
+- 158 by the density check: the transit lasts longer than any orbit around this star allows.
 - 43 by the odd/even check: alternate transits have different depths: two stars eclipsing at twice the period.
-- 37 by the secondary check: a second, shallower eclipse: the 'planet' also gives off light, so it is a star.
+- 37 by the secondary check: a second eclipse half an orbit later, deeper than any planet's glow: the companion gives off light, so it is a star.
 - 10 by the centroid check: the light dims off-centre: the eclipse is on a neighbouring star.
 
 In the random sample of 269 unresolved candidates, 39 (14%) were flagged by a light-curve check. If the sample is representative, that is about 1208 of the 8,333 unresolved candidates with periods. 7,827 have not had their light curves checked yet; each later run checks more of them.
 
 **How reliable the flags are.** Known planets were flagged 3.4% by the odd/even check, 1.7% by the secondary check, 0.0% by the centroid check and 0.07% by the Gaia check. A candidate flagged only by a light-curve check could still be a planet, so a low-confidence flag means *look again*, not *false positive*.
 
-Known planets flagged by the odd/even check: TOI 1136.03, TOI 2076.01, TOI 2207.01, TOI 2449.01, TOI 3353.01, TOI 396.01, TOI 4127.01, TOI 451.02, TOI 6551.01, TOI 6647.01. Some are known to have transit-timing variations or young, spotted host stars (e.g. TOI-1136, TOI-2076, TOI-451), where a fixed ephemeris catches some transits only partly. A candidate flagged only by this check should be checked for timing variations first.
+Known planets flagged by the odd/even check: CTOI 449566969.01, TOI 1136.03, TOI 1726.02, TOI 1730.03, TOI 186.02, TOI 1921.01, TOI 1928.01, TOI 2076.01, TOI 2207.01, TOI 2221.01, TOI 2345.01, TOI 2449.01, TOI 3353.01, TOI 396.01, TOI 396.02, TOI 4010.02, TOI 4127.01, TOI 4399.01, TOI 451.02, TOI 6028.01, TOI 6109.01, TOI 6551.01, TOI 6647.01, TOI 7510.02. Some are known to have transit-timing variations or young, spotted host stars (e.g. TOI-1136, TOI-2076, TOI-451), where a fixed ephemeris catches some transits only partly. A candidate flagged only by this check should be checked for timing variations first.
 
 ## The most likely planets among the undecided candidates
 
-All checks are combined into one planet probability by a logistic regression trained on 593 known cases (310 confirmed planets, the rest known false positives) using physical features only: size, orbit period, depth, transit duration against the star's density, several candidates on one star, and the Gaia, odd/even, centroid and secondary-eclipse evidence. Brightness and distance are left out on purpose, because they mostly reflect which stars were followed up.
+All checks are combined into one planet probability by a logistic regression trained on 1142 known cases (597 confirmed planets, the rest known false positives) using physical features only: size, orbit period, depth, transit duration against the star's density, several candidates on one star, and the Gaia, odd/even, centroid and secondary-eclipse evidence. Brightness and distance are left out on purpose, because they mostly reflect which stars were followed up.
 
-- **How well it separates known cases** (5-fold cross-validation): AUC 0.82 (1 = perfect, 0.5 = guessing). Among the 10 % of known cases it ranked most planet-like, 86% were real planets; of the 66 it gave 90 % or more, 83% were.
+- **How well it separates known cases** (5-fold cross-validation): AUC 0.83 (1 = perfect, 0.5 = guessing). Among the 10 % of known cases it ranked most planet-like, 89% were real planets; of the 128 it gave 90 % or more, 88% were.
 - **What the probability means:** the chance of being a planet for a candidate drawn from a mix like the training set (about half planets). It ranks candidates well, but it is not a validation: that needs follow-up observations or a full statistical validation (e.g. TRICERATOPS with high-resolution imaging).
 
 Top 15 of the 466 undecided candidates checked so far, with no red flag from any check (`planet_scores.csv` has all):
 
 | candidate | TIC | disposition | period (d) | size (R_J) | candidates on the star | planet probability |
 |---|---|---|---|---|---|---|
-| CTOI 326356701.02 | 326356701 | PC | 1.108 | 0.50 | 2 | 99% |
-| TOI 6454.01 | 146413471 | PC | 22.501 | 0.45 | 2 | 98% |
-| TOI 5738.02 | 198162530 | PC | 28.546 | 0.25 | 2 | 98% |
-| CTOI 180412528.01 | 180412528 | PC | 4.588 | 1.19 | 2 | 98% |
-| TOI 4643.01 | 270355392 | PC | 5.026 | 0.13 | 2 | 96% |
-| TOI 2103.02 | 160491359 | PC | 20.293 | 0.15 | 2 | 96% |
-| CTOI 445076121.02 | 445076121 | PC | 10.393 | 0.26 | 2 | 96% |
-| TOI 6007.01 | 279922257 | PC | 949.791 | 0.26 | 1 | 95% |
-| TOI 5159.01 | 286712787 | PC | 5.837 | 0.14 | 2 | 95% |
-| CTOI 237204346.02 | 237204346 | PC | 6.545 | 0.23 | 2 | 95% |
-| TOI 4639.01 | 91251292 | PC | 3.991 | 0.24 | 2 | 94% |
-| CTOI 2025895835.01 | 2025895835 | PC | 14.176 | nan | 1 | 94% |
-| TOI 707.02 | 167342439 | PC | 17.476 | 0.13 | 2 | 94% |
-| TOI 4647.01 | 303204165 | PC | 8.835 | 0.23 | 2 | 94% |
-| TOI 872.01 | 220459826 | PC | 2.240 | 0.25 | 2 | 93% |
+| CTOI 326356701.02 | 326356701 | PC | 1.108 | 0.50 | 2 | 100% |
+| TOI 5738.02 | 198162530 | PC | 28.546 | 0.25 | 2 | 99% |
+| TOI 6454.01 | 146413471 | PC | 22.501 | 0.45 | 2 | 99% |
+| CTOI 180412528.01 | 180412528 | PC | 4.588 | 1.19 | 2 | 99% |
+| TOI 2103.02 | 160491359 | PC | 20.293 | 0.15 | 2 | 98% |
+| TOI 4643.01 | 270355392 | PC | 5.026 | 0.13 | 2 | 98% |
+| CTOI 445076121.02 | 445076121 | PC | 10.393 | 0.26 | 2 | 98% |
+| TOI 6007.01 | 279922257 | PC | 949.791 | 0.26 | 1 | 97% |
+| TOI 5159.01 | 286712787 | PC | 5.837 | 0.14 | 2 | 97% |
+| CTOI 2025895835.01 | 2025895835 | PC | 14.176 | nan | 1 | 96% |
+| CTOI 237204346.02 | 237204346 | PC | 6.545 | 0.23 | 2 | 96% |
+| TOI 4639.01 | 91251292 | PC | 3.991 | 0.24 | 2 | 96% |
+| TOI 707.02 | 167342439 | PC | 17.476 | 0.13 | 2 | 96% |
+| TOI 4647.01 | 303204165 | PC | 8.835 | 0.23 | 2 | 96% |
+| TOI 872.01 | 220459826 | PC | 2.240 | 0.25 | 2 | 96% |
 
 ## The high-confidence flags
 

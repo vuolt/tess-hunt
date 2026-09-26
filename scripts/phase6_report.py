@@ -381,6 +381,18 @@ def _summary(t, per, gv, var, chosen, flags, sub, lc, chance, tvar=None, scores=
         L.append(f"| {r.check}: {r.variant} | {r.planets_flagged}/{r.planets} ({r.planet_rate:.1%}) | "
                  f"{r.fps_flagged}/{r.fps} ({r.fp_rate:.1%}) | {hp} | {hf} | {'**yes**' if r.used else 'no'} |")
     L.append("")
+    used = var[var.used & (var.get("holdout_planets", 0) > 0)] if "holdout_planets" in var else var.iloc[0:0]
+    if len(used):
+        hr = {r.check: r.holdout_planets_flagged / r.holdout_planets for r in used.itertuples()}
+        worse = [k for k, v in hr.items() if v > p6.PREFERRED_PLANET_RATE]
+        L.append("**On the held-out known planets** the light-curve checks in use flag "
+                 + ", ".join(f"{v:.1%} ({k.replace('_', '/')})" for k, v in hr.items())
+                 + (f". All stay within the {p6.MAX_PLANET_FLAG_RATE:.0%} limit"
+                    if all(v <= p6.MAX_PLANET_FLAG_RATE for v in hr.values())
+                    else f". Some exceed the {p6.MAX_PLANET_FLAG_RATE:.0%} limit")
+                 + (f", but {', '.join(w.replace('_', '/') for w in worse)} flag more planets than on the "
+                    "sample they were chosen on, so a candidate flagged by one of those alone could still "
+                    "be a planet." if worse else ".") + "\n")
     L.append(f"The Gaia check found the Gaia orbit of the transiting object itself, with a substellar "
              f"companion mass, on {g.substellar_matches['planet']} known planets (WASP-18 b, the brown dwarf "
              f"TOI-503 b and others). Such matches are *not* counted as false positives. If Gaia periods "

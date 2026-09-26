@@ -139,6 +139,33 @@ All network access goes through `tesshunt/net.py`:
 - catalogue tables (ExoFOP TOIs/CTOIs, TESS EB catalogue) are downloaded once
   in bulk.
 
+## Phase 5: expert checks on the submit and maybe candidates
+
+```
+tesshunt/expert.py   aperture test (TESScut, PSF model of Gaia neighbours), GP + transit
+                     refit (celerite2), Gaia dwarf/subgiant check, Gaia binarity extras,
+                     Gaia variability + AAVSO VSX, density-prior MCMC fit
+scripts/phase5.py    run [--sectors 48 21] | report
+results/phase5/      candidates.md (plain-English write-up per candidate),
+                     phase5_checks.csv, calibration.csv, ctoi_summaries.md
+```
+
+Each candidate gets a verdict: strong, plausible or doubtful. A doubtful
+"submit" becomes "maybe" and a doubtful "maybe" is dropped. The checks are
+calibrated on known planets in the same sectors (`calibration.csv`).
+
+## Phase 6: likely false positives among existing TOIs and CTOIs
+
+```
+python scripts/phase6.py gaia            # TOI/CTOI tables once, Gaia DR3 orbits in batches
+python scripts/phase6.py lc --procs 2    # odd/even, secondary, centroid on S3 light curves
+python scripts/phase6.py report          # validation, flags, results/phase6/summary.md
+```
+
+Every check is first run on confirmed planets and known false positives from
+the same tables. A check variant that flags more than 5 % of known planets is
+not used (2 % preferred). Results: `results/phase6/`.
+
 ## The app: explore and follow up candidates without the command line
 
 A local web app for someone with no astronomy background. It reads the

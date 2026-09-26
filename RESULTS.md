@@ -1076,3 +1076,137 @@ first suspect for any S21-only failure (see TIC 16222047 below).
     (factors of 3–40). That is typical of eclipsing binaries or systematics,
     not planets.
 
+## Phase 5: expert checks on the submit and maybe candidates (Sectors 48 and 21)
+
+`python scripts/phase5.py run --sectors 48 21` then `python scripts/phase5.py report`.
+Per-candidate plain-English write-ups: [`results/phase5/candidates.md`](results/phase5/candidates.md);
+table: `results/phase5/phase5_checks.csv`; updated CTOI summaries:
+`results/phase5/ctoi_summaries.md`; one plot per candidate in `plots/phase5/`.
+
+### The checks
+
+1. **Aperture test** (TESScut pixels). The dip depth is measured in apertures
+   of radius 1, 1.5, 2 and 3 px, corrected for the modelled light of every
+   Gaia neighbour. Errors are empirical, from about 40 dip-free "null"
+   epochs. The test also asks whether a resolvable neighbour explains the
+   depths better than the target.
+2. **Independent reprocessing.** A Gaussian-process noise model (celerite2)
+   is fitted jointly with the transit on the Phase 3 light curve.
+3. **Stellar check.** Gaia DR3 FLAME/GSP-Phot tells dwarf from subgiant or
+   giant; the companion radius is recomputed from the Gaia radius.
+4. **Gaia binarity extras.** Image multi-peak fraction, harmonic image
+   shape, and radial-velocity scatter (Katz et al. 2023 test).
+5. **Variability.** Gaia DR3 variability classes and AAVSO VSX.
+6. **Physical consistency.** An MCMC transit fit with the star's density as
+   a prior gives the circular-orbit period. For single transits this is
+   compared with the periods TESS still allows (Phase 4), with
+   eccentricity up to 0.5. For known periods, the minimum eccentricity is
+   reported.
+7. **Deep eclipse elsewhere.** A dip at least 3× deeper (SNR ≥ 10) in
+   another TESS sector marks an eclipsing binary. This check was added after
+   TIC 239198203 turned out to be one in Sector 21.
+
+Transits of other known planets on the same star are cut out before checks
+1, 2 and 6.
+
+### Calibration on known planets
+
+All checks were first run on 52 validation dips of known TOIs (planets and
+planet candidates) in S48 and S21, and on 6 dips of known false positives:
+
+| check | planets flagged (serious) | false positives flagged |
+|---|---|---|
+| aperture | 0/52 | 1/6 |
+| GP reprocessing | 0/52 | 1/6 |
+| binarity | 8/52 | 2/6 |
+| physical | 0/52 | 2/6 |
+| deep eclipse | 0/52 | 0/6 |
+
+The 8 binarity flags fall on 6 stars. All are TFOPWG planet candidates
+(PC/APC) with significant radial-velocity scatter; none is a confirmed
+planet. They are kept as flags.
+
+### Result
+
+| sector | Phase 4 submit | Phase 4 maybe | Phase 5 submit | Phase 5 maybe | dropped |
+|---|---|---|---|---|---|
+| 48 | 2 | 11 | 2 | 4 | 7 |
+| 21 | 7 | 25 | 3 | 15 | 14 |
+
+- **Submit, Sector 48:** TIC 165685135 and TIC 237109179, both plausible.
+  - Both hosts are subgiants by Gaia FLAME, but the companion radius barely
+    changes (0.61 and 0.44 R_J).
+  - TIC 237109179 needs a moderately eccentric orbit to reach an allowed
+    period.
+- **Submit, Sector 21:**
+  - TIC 1044288: strong, ~0.43 R_J around a 0.63 R☉ dwarf.
+    - The aperture test is weak for this star (SNR 3–5 per aperture).
+    - Its dilution-corrected TESScut depth (~2,000 ± 1,100 ppm) is lower
+      than the Phase 3 depth (~4,900 ppm).
+    - Check this first when there is new data.
+  - TIC 285082902 and TIC 21442437: both plausible; the GP significance is
+    5–7σ.
+- **TIC 95747180 stays "maybe" (plausible).**
+  - The dip's shape needs an eccentric orbit: e ≥ 0.61 at 80.5 d, or
+    e ≥ 0.44 at 40.2 d.
+  - Gaia has no evolutionary parameters for the star, so the TIC radius
+    is unverified.
+- **Dropped in Sector 48:**
+  - a much deeper eclipse in another sector, meaning an eclipsing binary:
+    - TIC 239198203 (21 % deep in S21);
+    - TIC 154565237 (5.6 % in S47);
+    - TIC 159540437 (4.1 % in S60);
+  - TIC 157264264: its shape needs a ~4 d orbit, which TESS excludes even
+    with e ≤ 0.5;
+  - TIC 142905733: the dip does not survive the GP;
+  - TIC 159159589: Gaia RV scatter;
+  - TIC 29235065: aperture test.
+- Sector 21 drops are mostly aperture-test failures, meaning a neighbour
+  is the likely source (9 of 14), plus 4 deep eclipses and 1 GP failure.
+
+### Limitations
+
+- The known false positives are few (6 dips), so the checks' power against
+  false positives is only roughly measured.
+- Sector 21 has 30-min FFIs and fewer points per star, so the aperture test
+  and the GP are weaker there than in Sector 48.
+- The eccentricity limits assume the TIC or FLAME density, with ±25 %
+  errors when only the TIC is available.
+
+## Phase 6: likely false positives among existing TOIs and CTOIs
+
+Full report: [`results/phase6/summary.md`](results/phase6/summary.md);
+table: `results/phase6/likely_false_positives.csv`.
+
+- **Scope.** 9,615 TOIs and CTOIs have no final disposition; 8,333 of them
+  have a period. Validation sets from the same tables: 1,403 confirmed/known
+  planets and 1,410 known false positives.
+- **Gaia orbit check** (Gaia DR3 two-body orbits and eclipsing binaries on
+  the transit period, or 2×, 3×, ½, ⅓ of it, with a companion of at least
+  0.08 M☉). It flags 1 of 1,403 planets and 68 of 1,410 known false
+  positives. Shuffling Gaia periods among stars gives 4.7 ± 2.1 chance
+  matches.
+- **Light-curve checks** on all Gaia-matched candidates plus about 300
+  random candidates per group, across every sector on the S3 mirror
+  (1,090 had usable data). Kept variants:
+  - odd/even: 5σ and ≥ 20 % different (3.4 % of planets, 12.1 % of known
+    FPs);
+  - centroid: 5σ and a source ≥ 1 px away (0 % of planets, 7.7 % of known
+    FPs).
+
+  The secondary-eclipse scan was dropped: even its strictest variant flags
+  5 % of planets. Hot Jupiters show real occultations and phase curves.
+- **Result.** 198 unresolved candidates are flagged: 175 high, 14 medium and
+  9 low confidence. 181 flags come from Gaia orbits (companion masses 0.09–1.7 M☉, median
+  0.3 M☉), 43 from odd/even depths and 10 from centroid shifts.
+  In the random sample, 6 % of unresolved candidates carry a light-curve
+  flag, about 500 of the 8,333 if the sample is representative.
+- **Not false positives:** 5 unresolved TOIs have a Gaia orbit on the transit
+  period with a companion of 68–82 M_Jup. Gaia is probably seeing the
+  transiting object itself, a brown dwarf or one of the lowest-mass stars
+  (`gaia_substellar_companions.csv`).
+- **Caveat.** Several known planets flagged by the odd/even check have
+  transit-timing variations or young, spotted hosts (TOI-1136, TOI-2076,
+  TOI-451). Check candidates flagged only by odd/even for timing variations
+  first.
+

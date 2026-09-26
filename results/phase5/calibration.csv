@@ -1,0 +1,9 @@
+check,planets,flagged_serious,false_positives,fp_flagged
+aperture,52,0,6,1
+gp,52,0,6,1
+evolved,52,0,6,0
+binarity,52,8,6,2
+eclipsing,52,0,6,1
+physical,52,0,6,2
+too_large,52,0,6,1
+deep_eclipse,52,0,6,0

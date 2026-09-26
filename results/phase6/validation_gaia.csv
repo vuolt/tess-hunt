@@ -1,0 +1,4 @@
+check,variant,group,flagged,total,rate,substellar_matches
+gaia_orbit,period match + stellar companion or EB,planet,1,1403,0.0007,3
+gaia_orbit,period match + stellar companion or EB,fp,68,1410,0.0482,1
+gaia_orbit,period match + stellar companion or EB,unresolved,181,8333,0.0217,5

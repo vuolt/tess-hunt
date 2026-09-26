@@ -16,12 +16,16 @@ false-flag rate. Checks (tesshunt/expert.py):
   5 variable   Gaia DR3 variability + AAVSO VSX
   6 physical   emcee transit fit with a stellar-density prior: implied circular period
                vs the periods TESS allows; for a known period, the eccentricity needed
+  7 deep       a much deeper eclipse (>= 3x, SNR >= 10) in another TESS sector of the
+               star, from Phase 4's all-sector search: an eclipsing binary (added after
+               TIC 239198203 turned out to show a 22 % eclipse in Sector 21)
 
 Verdict per candidate:
   doubtful   any serious flag: aperture test fails; GP SNR < 5 or GP depth < 0.5x
              Phase 3; evolved host making R_p > 2 R_J; Gaia RV variability (a stellar
              companion on a short orbit); a catalogued eclipsing binary; shape needing
-             e > 0.7 even at the 1-sigma bound, or R_p/R* > 0.3
+             e > 0.7 even at the 1-sigma bound, or R_p/R* > 0.3; a much deeper
+             eclipse in another TESS sector
   (thresholds calibrated on the validation planets: see results/phase5/calibration.csv)
   plausible  no serious flag but at least one minor one: evolved host, dwarf status not
              verifiable with Gaia, RUWE > 1.4 or a partly resolved companion, rotational
@@ -59,6 +63,26 @@ RHO_ERR_FRAC = 0.25            # density uncertainty when Gaia FLAME has no mass
 GP_SNR_SERIOUS = 5.0           # calibrated on the validation planets (lowest real: 6.6)
 E_MINOR, E_SERIOUS = 0.3, 0.7  # on the 1-sigma lower bound of the eccentricity needed
 RP_RATIO_MAX = 0.3
+DEEP_FACTOR, DEEP_SNR = 3.0, 10.0   # check 7: a much deeper eclipse in another TESS sector
+
+
+def deep_eclipses(t):
+    """Dips at least DEEP_FACTOR x deeper than the candidate, at SNR >= DEEP_SNR,
+    found by Phase 4's search of every TESS sector of this star. Phase 4 only
+    used dips of similar depth; a much deeper one means an eclipsing binary
+    (the candidate dip is then usually its secondary eclipse)."""
+    import phase4
+    p = os.path.join(phase4.paths(int(t["sector"]))["work"], "search", f"{t['tic']}.json")
+    if not os.path.exists(p):
+        return None
+    out = []
+    for r in jload(p).get("sectors", []):
+        for m in r.get("matched_dips", []) or []:
+            if m.get("is_original"):
+                continue
+            if m.get("snr", 0) >= DEEP_SNR and m.get("depth_ppm", 0) >= DEEP_FACTOR * t["depth"] * 1e6:
+                out.append(dict(sector=r["sector"], t0=m["t0"], depth_ppm=m["depth_ppm"], snr=m["snr"]))
+    return out
 
 
 def jdump(path, obj):
@@ -92,7 +116,7 @@ def _toi_periods():
     import io
     import urllib.parse
     from tesshunt import net
-    q = "select tid,toi,tfopwg_disp,pl_orbper,pl_tranmid from toi"
+    q = "select tid,toi,tfopwg_disp,pl_orbper,pl_tranmid,pl_trandurh from toi"
     url = ("https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=" + urllib.parse.quote(q)
            + "&format=csv")
     return pd.read_csv(io.StringIO(net.get_text(url, "exoplanet_archive")))
@@ -110,6 +134,24 @@ def _matching_period(tois, tic, t0_btjd, tol_d=0.5):
         if off < tol_d and (best is None or off < best[0]):
             best = (off, float(r.pl_orbper))
     return best[1] if best else None
+
+
+def _other_transits(tois, tic, t0_btjd, own_period, window=5.0):
+    """Transits of the star's *other* TOIs within +-window days of the dip (they
+    must be cut out before fitting this one, e.g. HD 191939 c next to d)."""
+    out = []
+    for r in tois[tois.tid == tic].itertuples():
+        if not (r.pl_orbper > 0 and np.isfinite(r.pl_tranmid) and np.isfinite(r.pl_trandurh)):
+            continue
+        if own_period and abs(r.pl_orbper - own_period) < 1e-3 * own_period:
+            continue                                   # the dip's own planet
+        e = r.pl_tranmid - 2457000.0
+        n0 = np.floor((t0_btjd - window - e) / r.pl_orbper)
+        for n in np.arange(n0, n0 + 2 * window / r.pl_orbper + 2):
+            tc = e + n * r.pl_orbper
+            if abs(tc - t0_btjd) < window and abs(tc - t0_btjd) > r.pl_trandurh / 24:
+                out.append((float(tc), float(r.pl_trandurh / 24)))
+    return out
 
 
 def targets(sectors):
@@ -152,7 +194,8 @@ def targets(sectors):
                              category="", reasons="", toi=c.get("toi"), tfop_disp=disp,
                              t0=c["t0"], t14=c["t14"], depth=c["depth"], snr=c["snr"], fpp=c["fpp"],
                              ra=c["ra"], dec=c["dec"], Tmag=c["Tmag"], rad=c["rad"], mass=c["mass"],
-                             periods=[mp] if mp else None, binarity_flags=""))
+                             periods=[mp] if mp else None, binarity_flags="",
+                             other_transits=_other_transits(tois, c["tic"], c["t0"], mp)))
     df = pd.DataFrame(rows)
     # Gaia DR3 ids from the TIC (cached, one bulk query)
     from tesshunt import tic as tic_mod
@@ -209,16 +252,17 @@ def e_min_from_ratio(ratio):
 
 def run_target(t):
     key = t["key"]
-    from phase3_vet import sector_dirs
     s = int(t["sector"])
     res = {}
+    ot = t.get("other_transits")
+    other = [tuple(x) for x in ot] if isinstance(ot, (list, tuple)) else []
     res["aperture"] = _cached(key, "aperture", lambda: ex.aperture_test(
-        t["ra"], t["dec"], t["Tmag"], s, t["t0"], t["t14"]))
+        t["ra"], t["dec"], t["Tmag"], s, t["t0"], t["t14"], other_transits=other))
     lc = _lc(t["tic"], s)
     cad = float(np.median(np.diff(lc.time)))
 
     def gp():
-        g = ex.gp_reprocess(lc.time, lc.flux, t["t0"], t["t14"], t["depth"], cad)
+        g = ex.gp_reprocess(lc.time, lc.flux, t["t0"], t["t14"], t["depth"], cad, other_transits=other)
         g.pop("arrays", None)
         return g
     res["gp"] = _cached(key, "gp", gp)
@@ -233,7 +277,7 @@ def run_target(t):
     def physical():
         from tesshunt import multisector as ms
         tt, ff = ms.candidate_detrend(lc, t["t14"])
-        w = np.abs(tt - t["t0"]) < max(2.5 * t["t14"], 0.5)
+        w = (np.abs(tt - t["t0"]) < max(2.5 * t["t14"], 0.5)) & ex._keep_mask(tt, other)
         rho, drho, src = rho_prior(dict(mass=t["mass"], radius=res["star"]["radius"] or t["rad"]), gs)
         if rho is None:
             return dict(error="no stellar density")
@@ -263,7 +307,8 @@ def run_target(t):
         out["model"] = o.pop("model")
         out["t_fit"] = tt[w].tolist()
         out["f_fit"] = ff[w].tolist()
-        per_path = os.path.join(sector_dirs(s, 4)[0], "periods", f"{t['tic']}.json")
+        import phase4
+        per_path = os.path.join(phase4.paths(s)["work"], "periods", f"{t['tic']}.json")
         if os.path.exists(per_path) and t["role"] in ("candidate", "control"):
             per = jload(per_path)
             out["periods"] = ex.period_consistency(o["P_samples"], per.get("intervals"),
@@ -449,6 +494,18 @@ def assess(t, r):
         if sg["grazing_prob"] > 0.5:
             txt += f" The fit is probably grazing (p = {sg['grazing_prob']:.2f}), so the size is uncertain."
         lines["physical"] = txt
+    de = deep_eclipses(t)
+    if de is None:
+        lines["deep"] = "No all-sector search for this star (not a Phase 4 candidate)."
+    elif de:
+        serious.append("deep_eclipse")
+        top = max(de, key=lambda x: x["depth_ppm"])
+        lines["deep"] = (f"**Another TESS sector shows a much deeper eclipse on this star**: "
+                         f"{top['depth_ppm'] / 1e4:.1f} % deep in Sector {top['sector']} (BTJD {top['t0']:.2f}, "
+                         f"SNR {top['snr']:.0f}), against {t['depth'] * 100:.2f} % for this dip. The star is an "
+                         "eclipsing binary; this dip is probably its shallower (secondary) eclipse.")
+    else:
+        lines["deep"] = "No much deeper eclipse in any other TESS sector of this star."
     verdict = "doubtful" if serious else ("plausible" if minor else "strong")
     return dict(lines=lines, serious=serious, minor=minor, verdict=verdict)
 
@@ -515,7 +572,7 @@ def cmd_report(args):
     # calibration on the validation planets
     val = df[df.role == "validation"]
     fps = df[df.role == "false_positive"]
-    checks = ["aperture", "gp", "evolved", "binarity", "eclipsing", "physical", "too_large"]
+    checks = ["aperture", "gp", "evolved", "binarity", "eclipsing", "physical", "too_large", "deep_eclipse"]
     for c in checks:
         cal.append(dict(check=c, planets=len(val), flagged_serious=int(val.serious.str.contains(c).sum()),
                         false_positives=len(fps), fp_flagged=int(fps.serious.str.contains(c).sum())))
@@ -541,13 +598,14 @@ def cmd_report(args):
 
 def _card(t, a, new_cat, why):
     names = dict(aperture="Aperture test", gp="Independent reprocessing", star="Stellar check",
-                 binarity="Gaia binarity", variable="Variability", physical="Physical consistency")
+                 binarity="Gaia binarity", variable="Variability", physical="Physical consistency",
+                 deep="Other TESS sectors")
     head = (f"## TIC {t['tic']} (Sector {t['sector']}"
             + (", control" if t["role"] == "control" else "") + f") — **{a['verdict']}**")
     L = [head, ""]
     if t["role"] == "candidate":
         L.append(f"Phase 4: **{t['category']}** → Phase 5: **{new_cat}**" + (f" ({why})" if why else "") + "\n")
-    for k in ("aperture", "gp", "star", "binarity", "variable", "physical"):
+    for k in ("aperture", "gp", "star", "binarity", "variable", "physical", "deep"):
         L.append(f"- **{names[k]}.** {a['lines'].get(k, '–')}")
     L.append("")
     why_v = {"strong": "every check passed.",

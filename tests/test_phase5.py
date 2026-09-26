@@ -133,3 +133,12 @@ def test_needed_density_scales_linearly_with_period():
         a = np.sqrt(b ** 2 + ((1 + rp) ** 2 - b ** 2) / s ** 2)
         return 3 * np.pi * a ** 3 / (ex.G_CGS * (P * 86400) ** 2)
     assert rho_needed(80.48) / rho_needed(40.24) == pytest.approx(2.0, rel=1e-3)
+
+
+def test_other_transits_are_cut_out():
+    """Another planet's transit near the candidate must be removed before fitting."""
+    t = np.arange(0, 10, 0.01)
+    keep = ex._keep_mask(t, [(3.0, 0.1)])
+    assert not keep[np.abs(t - 3.0) < 0.1].any()
+    assert keep[np.abs(t - 3.0) > 0.2].all()
+    assert ex._keep_mask(t, None).all()

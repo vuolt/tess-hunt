@@ -90,8 +90,19 @@ def _fit_psf(oot, x0, y0, nbs):
                 dist=[0.0] + dist)
 
 
-def aperture_test(ra, dec, tmag, sector, t0, t14, radii=APERTURE_RADII):
+def _keep_mask(t, other_transits):
+    """False within other known transits on the star: (centre, duration) pairs,
+    padded by half a duration plus 30 min on each side."""
+    keep = np.ones(len(t), bool)
+    for tc, dur in other_transits or []:
+        keep &= np.abs(t - tc) > dur + 1 / 48
+    return keep
+
+
+def aperture_test(ra, dec, tmag, sector, t0, t14, radii=APERTURE_RADII, other_transits=()):
     cut = tesscut_cutout(ra, dec, sector)
+    k = _keep_mask(cut["time"], other_transits)
+    cut = dict(cut, time=cut["time"][k], cube=cut["cube"][k])
     x0, y0 = cut["x"], cut["y"]
     t = cut["time"]
     oot_sel = np.abs(t - t0) > max(t14, 0.25)
@@ -178,14 +189,14 @@ def _shape_model(t, t0, rp, t14, b, exp_time, per=100.0):
     return transit_lc(t, t0, per, rp, a, np.degrees(np.arccos(b / a)), exp_time)
 
 
-def gp_reprocess(t, f, t0, t14, depth0, exp_time, window_d=4.0):
+def gp_reprocess(t, f, t0, t14, depth0, exp_time, window_d=4.0, other_transits=()):
     """Joint GP (celerite2 SHO, Q = 1/sqrt 2) + transit fit, and the same GP
     without a transit. The GP timescale is kept >= 3 T14 so it cannot absorb
     the transit. Returns depth, SNR = sqrt(2 dlnL), and the GP-detrended flux."""
     import celerite2
     from celerite2 import terms
     from scipy.optimize import minimize
-    sel = np.abs(t - t0) < window_d
+    sel = (np.abs(t - t0) < window_d) & _keep_mask(t, other_transits)
     t, f = t[sel], f[sel] / np.median(f[sel])
     sig = _robust_sigma_pt(f)
     rho_min = 3 * t14

@@ -259,7 +259,8 @@ def write_ledger(current_names=None):
     first = ["name", "tic", "group", "sample", "checked", "tables_date", "n_events", "sectors"]
     df = df[[c for c in first if c in df] + [c for c in df if c not in first]].sort_values("name")
     os.makedirs(OUT, exist_ok=True)
-    df.to_csv(LEDGER + ".tmp", index=False, float_format="%.6g", compression="gzip")
+    # mtime=0: the file only changes when its content does
+    df.to_csv(LEDGER + ".tmp", index=False, float_format="%.6g", compression={"method": "gzip", "mtime": 0})
     os.replace(LEDGER + ".tmp", LEDGER)
     return len(df)
 

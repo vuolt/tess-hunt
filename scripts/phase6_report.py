@@ -300,19 +300,22 @@ def report():
     sub.to_csv(os.path.join(p6.OUT, "gaia_substellar_companions.csv"), index=False)
     scores, score_info = planet_scores(t, lc, gf, flags)
     scores.to_csv(os.path.join(p6.OUT, "planet_scores.csv"), index=False, float_format="%.4g")
-    _plot(var, gv)
+    _plot(var, gv, tvar)
     _summary(t, per, gv, var, chosen, flags, sub, lc, chance, tvar, scores, score_info)
     n = p6.write_ledger(current_names=set(t.name))
     print(f"{n} light-curve checks recorded in {os.path.relpath(p6.LEDGER, p6.ROOT)}")
     print(open(os.path.join(p6.OUT, "summary.md")).read()[:6000])
 
 
-def _plot(var, gv):
+def _plot(var, gv, tvar=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     os.makedirs(p6.PLOTS, exist_ok=True)
     rows = [("Gaia orbit", gv.set_index("group").rate.get("planet", 0), gv.set_index("group").rate.get("fp", 0), True)]
+    if tvar is not None:
+        for r in tvar.itertuples():
+            rows.append((f"{r.check} (catalogue): {r.variant}", r.planet_rate, r.fp_rate, r.used))
     for r in var.itertuples():
         rows.append((f"{r.check}: {r.variant}", r.planet_rate, r.fp_rate, r.used))
     fig, ax = plt.subplots(figsize=(10, 0.45 * len(rows) + 1.2))
@@ -323,8 +326,8 @@ def _plot(var, gv):
     ax.set_yticks(y, [("✓ " if x[3] else "   ") + x[0] for x in rows], fontsize=8)
     ax.set_xlabel("% of the group flagged")
     ax.legend(fontsize=8, loc="lower right")
-    ax.set_title("Phase 6: how often each check flags known planets vs known false positives (✓ = used)",
-                 fontsize=9)
+    ax.set_title("How often each check flags known planets vs known false positives\n(✓ = used)",
+                 fontsize=10)
     fig.tight_layout()
     fig.savefig(os.path.join(p6.PLOTS, "validation_rates.png"), dpi=110)
     plt.close(fig)

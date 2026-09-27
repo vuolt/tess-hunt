@@ -1102,6 +1102,10 @@ class _TesscutSearch:
             from astropy.io import fits
             return [SimpleNamespace(hdu=fits.open(slim))]
         h = tesscut_hdul(ra, dec, self.sector, size)
+        # TRICERATOPS asks for a bigger cutout (2 * search radius + 2 = 22 px) at its own
+        # catalogue position and reads it once; keeping it would cost ~100 MB per dip in
+        # 200-s sectors, so the cached file is removed once it is in memory.
+        forget_tesscut(ra, dec, self.sector, size)
         return [SimpleNamespace(hdu=h)]
 
 

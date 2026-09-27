@@ -587,6 +587,46 @@ def tesscut_hdul(ra, dec, sector, size=15):
     return fits.open(io.BytesIO(data))
 
 
+def tesscut_cache_path(ra, dec, sector, size=15):
+    """Where net.get keeps this cutout."""
+    url = (f"{TESSCUT_API}?ra={ra:.6f}&dec={dec:.6f}&y={size}&x={size}"
+           f"&sector={int(sector)}")
+    return net._cache_path("tesscut", net._key(url, None), ".bin")
+
+
+def _slim_path(ra, dec, sector, size=15):
+    return net._cache_path("tesscut_slim", net._key(round(ra, 6), round(dec, 6), int(sector), int(size)),
+                           ".fits")
+
+
+def forget_tesscut(ra, dec, sector, size=15, keep_slim=False) -> int:
+    """Delete a cached cutout (200-s sectors make them ~50 MB each). With
+    ``keep_slim``, first save what TRICERATOPS needs from it (the time-averaged
+    image, the pixel origin and the WCS: a few kB). Returns the bytes freed."""
+    p = tesscut_cache_path(ra, dec, sector, size)
+    if not os.path.exists(p):
+        return 0
+    if keep_slim and not os.path.exists(_slim_path(ra, dec, sector, size)):
+        import warnings
+        from astropy.io import fits
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            h = tesscut_hdul(ra, dec, sector, size)
+            img = np.nanmean(np.asarray(h[1].data["FLUX"], float), axis=0).astype(np.float32)
+            ny, nx = img.shape
+            col = fits.Column(name="FLUX", format=f"{nx * ny}E", dim=f"({nx},{ny})", array=img[None])
+            t = fits.BinTableHDU.from_columns([col])
+            for k in ("1CRV4P", "2CRV4P"):
+                t.header[k] = h[1].header[k]
+            tmp = _slim_path(ra, dec, sector, size) + ".part"
+            fits.HDUList([fits.PrimaryHDU(), t, fits.ImageHDU(data=h[2].data, header=h[2].header)]
+                         ).writeto(tmp, overwrite=True)
+            os.replace(tmp, _slim_path(ra, dec, sector, size))
+    n = os.path.getsize(p)
+    os.remove(p)
+    return n
+
+
 def tesscut_cutout(ra, dec, sector, size=15):
     """TESScut FFI cutout reduced to arrays (the raw cutout stays only in the cache)."""
     import warnings
@@ -1056,7 +1096,12 @@ class _TesscutSearch:
     def download_all(self, cutout_size):
         from types import SimpleNamespace
         size = cutout_size[0] if isinstance(cutout_size, (tuple, list)) else cutout_size
-        h = tesscut_hdul(self.target.ra.deg, self.target.dec.deg, self.sector, size)
+        ra, dec = self.target.ra.deg, self.target.dec.deg
+        slim = _slim_path(ra, dec, self.sector, size)
+        if not os.path.exists(tesscut_cache_path(ra, dec, self.sector, size)) and os.path.exists(slim):
+            from astropy.io import fits
+            return [SimpleNamespace(hdu=fits.open(slim))]
+        h = tesscut_hdul(ra, dec, self.sector, size)
         return [SimpleNamespace(hdu=h)]
 
 

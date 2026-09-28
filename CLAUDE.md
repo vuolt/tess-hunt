@@ -9,6 +9,6 @@ If a service answers 429 (too many requests) or sends Retry-After, treat it as a
 
 # Use only free, public services:
 
-Use only services that are free and meant for public use: MAST, the AWS S3 mirror stpubdata (free through the AWS Open Data programme; access it anonymously), the Gaia archive, CDS (VizieR, SkyBoT), NASA Exoplanet Archive, ExoFOP and similar.
+Use only services that are free and meant for public use: MAST, the AWS S3 mirror stpubdata (free through the AWS Open Data programme; access it anonymously: libraries such as s3fs, fsspec, boto3 and astrocut pick up AWS_* credentials from the environment on their own, so always pass anon=True or the equivalent), the Gaia archive, CDS (VizieR, SkyBoT), NASA Exoplanet Archive, ExoFOP and similar.
 Never use paid services, paid APIs, paid cloud compute, requester-pays buckets or anyone's credentials or API keys.
 If a paid or private service appears reachable by accident (a misconfigured bucket, an open endpoint, a leaked key), do not use it; stop and tell the user instead.

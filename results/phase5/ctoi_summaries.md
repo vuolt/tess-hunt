@@ -51,3 +51,13 @@ Prepared for submission to ExoFOP as community TOIs; **not submitted**.
 - **Binarity:** RUWE 0.84; no binarity indicators
 - **Phase 5 expert checks:** plausible; minor concerns: aperture_marginal;gp_weak;evolved;eccentric (details: `results/phase5/candidates.md`)
 - **Other TESS data:** 21 sectors observed (spoc2min 9, tess-spoc 11, qlp 1); confirmed in spoc2min (depth ratio 1.11, SNR 9.1)
+
+### TIC 377367194  (Tmag 12.39, R* 0.72 Rsun, Teff 4034 K)
+
+- **Epoch:** BJD_TDB 2460351.3107 ± 0.0030 (TESS S75)
+- **Depth:** 10548 ± 497 ppm; **duration:** 7.32 h; b ≈ 0.00; **Rp ≈ 8.1 R⊕ (0.72 R_J)**
+- **Period constraints:** all P > 1480 d allowed (longer than TESS's span around the event); 95 allowed windows below that, e.g. 35.3-35.4, 37.0-37.2, 39.0-39.2, 41.1-41.4, 43.6-43.8 d; duration implies P >= 83 d for a central circular orbit
+- **Vetting:** Passes 7-step vetting (tess-hunt Phase 3): transit preferred over the best non-transit model (flare_decay) by dBIC 203; centroid on target; dip present in raw pixels; no known asteroid; not a known EB/TOI; TRICERATOPS FPP 0.000. Not a flux step: the in-transit level is below both local baselines in tesscut, tess-spoc (Phase 4).
+- **Binarity:** RUWE 1.06; El-Badry+21 wide binary: 610" (84328 AU)
+- **Phase 5 expert checks:** strong; all six checks passed (details: `results/phase5/candidates.md`)
+- **Other TESS data:** 5 sectors observed (tess-spoc 5); no second transit found

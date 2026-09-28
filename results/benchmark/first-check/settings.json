@@ -1,0 +1,12 @@
+{
+ "entries": [
+  "TOI-2099.01",
+  "TOI-1824.01"
+ ],
+ "planets": 6,
+ "false_positives": 6,
+ "min_period": 15.0,
+ "sector": null,
+ "seed": 1,
+ "name": "first-check"
+}

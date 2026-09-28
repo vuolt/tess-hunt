@@ -323,6 +323,18 @@ streamlit run app/main.py
   submitting, strong ones held back, or new likely false positives), or
   says nothing was found. It then gives a ready commit message with the
   commands to save the results. The app never commits anything itself.
+- **Pipeline check.** Tests the pipeline on objects scientists have already
+  settled: type TOI or TIC numbers, and/or ask for N random confirmed planets
+  and N random confirmed false positives (orbits of 15 days or more, since the
+  pipeline hunts single dips). For each one it picks a sector with a transit
+  (or the sector you give), runs the real search, vetting checks 1-7 and
+  expert checks on that one star in `work/benchmark/`, and shows whether the
+  dip was found, which check stopped it and the expert verdict, plus a
+  scorecard: planets kept, false positives rejected. The pipeline is not told
+  the answer (check 6 ignores the star's own TOI entry; the known orbit is not
+  used). About 2 minutes per object. Same as
+  `python scripts/benchmark.py TOI-2099.01 "TIC 142387023" --planets 5 --false-positives 5`;
+  results in `results/benchmark/NAME/`.
 - **Glossary.** Plain-English explanations of TIC, SNR, FPP, duotransit, CTOI,
   ExoFOP, TFOP and more.
 

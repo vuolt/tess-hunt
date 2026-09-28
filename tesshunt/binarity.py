@@ -94,6 +94,11 @@ def elbadry_pairs(source_id: int) -> pd.DataFrame:
 
 
 def wds_pairs(ra: float, dec: float, radius_arcsec: float = 60) -> pd.DataFrame:
+    from . import catalogs
+    if catalogs.available("wds"):   # local copy (python -m tesshunt.catalogs ensure)
+        t = catalogs.cone("wds", ra, dec, radius_arcsec)
+        cols = ["WDS", "Comp", "sep2", "mag1", "mag2", "Obs2"]
+        return t[cols].astype(object).where(t[cols].notna(), "").astype(str) if len(t) else pd.DataFrame()
     return _vizier({"-source": "B/wds/wds", "-c": f"{ra} {dec}", "-c.rs": radius_arcsec,
                     "-out": "WDS,Comp,sep2,mag1,mag2,Obs2"})
 

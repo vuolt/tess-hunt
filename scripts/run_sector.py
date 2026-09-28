@@ -51,6 +51,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 from tesshunt import ledger  # noqa: E402
 
 STEPS = [
+    ("catalogs", ["fetch_catalogs.py"]),
     ("select", ["phase2.py", "--sector", "{s}", "select", "--tmag-max", "{tmag}"]),
     ("search", ["phase2.py", "--sector", "{s}", "search", "--procs", "{procs}"]),
     ("phase2-report", ["phase2_report.py", "--sector", "{s}"]),

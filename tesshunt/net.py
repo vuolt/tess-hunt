@@ -43,7 +43,7 @@ SERVICES = {
     "skybot": SMALL_INTERVAL, "exofop": SMALL_INTERVAL, "gaia": SMALL_INTERVAL,
     "vizier": SMALL_INTERVAL, "mast_catalog": SMALL_INTERVAL, "tesscut": SMALL_INTERVAL,
     "mast_api": SMALL_INTERVAL, "mast_files": SMALL_INTERVAL, "exoplanet_archive": SMALL_INTERVAL,
-    "villanova": SMALL_INTERVAL, "irsa": SMALL_INTERVAL,
+    "villanova": SMALL_INTERVAL, "irsa": SMALL_INTERVAL, "cdsarc": SMALL_INTERVAL,
     "s3": None,
 }
 

@@ -368,9 +368,16 @@ def _vsx_eclipsing(typ: str) -> bool:
 
 
 def vsx(ra, dec, radius_arcsec=30):
+    """VSX entries near the star: from the local copy when there is one
+    (python -m tesshunt.catalogs ensure), else one VizieR query. '_r' is in
+    arcseconds for the local copy ('_r_arcsec'); VizieR's '_r' is in arcminutes."""
     import io
     import urllib.parse
     import pandas as pd
+    from . import catalogs
+    if catalogs.available("vsx"):
+        t = catalogs.cone("vsx", ra, dec, radius_arcsec).head(20)
+        return t[["Name", "Type", "Period", "max", "min", "_r"]].rename(columns={"_r": "_r_arcsec"})
     url = ("https://vizier.cds.unistra.fr/viz-bin/asu-tsv?" + urllib.parse.urlencode(
         {"-source": "B/vsx/vsx", "-c": f"{ra} {dec}", "-c.rs": radius_arcsec,
          "-out": "Name,Type,Period,max,min,_r", "-out.max": 20}))
@@ -400,13 +407,15 @@ def variability_check(gs, vsx_df):
         for _, r in vsx_df.iterrows():
             typ = str(r.get("Type", "")).strip()
             per = str(r.get("Period", "")).strip()
-            dist = str(r.get("_r", "")).strip()
+            local = "_r_arcsec" in r
+            dist = str(r.get("_r_arcsec" if local else "_r", "")).strip()
             note = f"VSX {str(r.get('Name', '')).strip()} ({typ}"
             if per and per.lower() != "nan":
                 note += f", P = {per} d"
             note += ")"
             if dist and dist.lower() != "nan":
-                note += f" at {float(dist):.0f}″"
+                d = float(dist) if local else float(dist) * 60   # VizieR's _r is in arcmin
+                note += f" at {d:.1f}″"
             if typ.upper().startswith("EP"):
                 notes.append(note.replace("(EP", "(EP: a known transiting planet"))
                 continue
@@ -477,8 +486,13 @@ def density_fit(t, f, t0, t14, depth, exp_time, rho_star, rho_err, known_period=
         p0 = np.array([t0, rp0, 0.3, np.log10(np.clip(rho0, 0.01, 50)), 1.0])
         scale = np.array([t14 / 20, rp0 / 10, 0.2, 0.2, 1e-4])
     ndim = len(p0)
-    start = []
+    start, tries = [], 0
     while len(start) < nwalkers:
+        tries += 1
+        if tries > 200 * nwalkers:
+            # e.g. a star whose catalogued density allows no orbit with this transit
+            raise RuntimeError(f"no valid starting point for the fit after {tries - 1} tries "
+                               f"(rho_star {rho_star:.3g}, T14 {t14 * 24:.1f} h, depth {depth:.3g})")
         q = p0 + scale * rng.standard_normal(ndim)
         q[2] = abs(q[2])
         if np.isfinite(lnprob(q)):

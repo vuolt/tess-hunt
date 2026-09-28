@@ -289,11 +289,24 @@ def pixel_job(row):
         cat = v.catalogue_check(int(row["tic"]), _CATS)
         save_json(out, dict(key=k, status="ok", pixels=pix, asteroid=ast, catalogue=cat,
                             ap_abs=ap_abs))
+        _prune_cutout(row)
         return k, "ok"
     except Exception as e:  # noqa: BLE001
         save_json(out, dict(key=k, status="error", error=f"{type(e).__name__}: {e}",
                             tb=traceback.format_exc()))
+        _prune_cutout(row)
         return k, "error"
+
+
+def _prune_cutout(row) -> int:
+    """Once the pixel checks are done (the result is saved in pix/*.json), delete
+    the stored cutout of a dip that stops here, so a sector of 200-s data does
+    not fill the disk. Dips that go on (passing checks 1-6, or validation
+    planets) keep theirs: the follow-up and expert checks read it again."""
+    k = row["key"]
+    if bool(row.get("is_validation")) or bool(passed_lc(k, row["snr"]) and passed_pix(k, row["snr"])):
+        return 0
+    return v.forget_tesscut(row["ra"], row["dec"], SECTOR)
 
 
 def retry_asteroid(row, r, out):
@@ -407,6 +420,9 @@ def main():
         todo = [r for r in rows if lc_ok(r["key"]) or
                 (r["is_validation"] and lc_ok(r["key"]) is not None)]
         fn, threads = pixel_job, True
+        freed = sum(_prune_cutout(r) for r in todo if os.path.exists(jpath("pix", r["key"])))
+        if freed:
+            print(f"deleted cutouts no later step needs: {freed / 1e9:.1f} GB freed", flush=True)
     else:
         todo = [r for r in rows if (passed_lc(r["key"], r["snr"]) and passed_pix(r["key"], r["snr"])) or
                 (r["is_validation"] and passed_pix(r["key"], r["snr"]) is not None)]

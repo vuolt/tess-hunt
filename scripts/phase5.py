@@ -279,7 +279,7 @@ def run_target(t):
         tt, ff = ms.candidate_detrend(lc, t["t14"])
         w = (np.abs(tt - t["t0"]) < max(2.5 * t["t14"], 0.5)) & ex._keep_mask(tt, other)
         rho, drho, src = rho_prior(dict(mass=t["mass"], radius=res["star"]["radius"] or t["rad"]), gs)
-        if rho is None:
+        if rho is None or not np.isfinite(rho) or not (drho is not None and np.isfinite(drho)):
             return dict(error="no stellar density")
         out = dict(rho_star=rho, rho_err=drho, rho_source=src)
         rng = np.random.default_rng(3)
@@ -511,8 +511,53 @@ def assess(t, r):
                          "eclipsing binary; this dip is probably its shallower (secondary) eclipse.")
     else:
         lines["deep"] = "No much deeper eclipse in any other TESS sector of this star."
+    cn = centroid_on_neighbour(t)
+    if cn:
+        minor.append("centroid_neighbour")
+        lines["centroid"] = (f"**The dip's light centre sits on a neighbour**: {cn['offset_px']:.2f} px from the "
+                             f"target ({cn['sigma']:.0f}σ) but {cn['d_nb']:.2f} px from TIC {cn['tic']} "
+                             f"({cn['dTmag']:.1f} mag fainter, bright enough to cause the dip). Such stars are "
+                             "too close for the neighbour test; ask for a human look (TOI-2099.01 was a "
+                             "nearby eclipsing binary like this).")
     verdict = "doubtful" if serious else ("plausible" if minor else "strong")
     return dict(lines=lines, serious=serious, minor=minor, verdict=verdict)
+
+
+CN_MIN_PX = 0.5      # centroid offset (px) worth a look even below the 1 px Phase 3 limit
+CN_SIGMA = 3.0
+CN_CLOSER = 0.5      # centroid at most this fraction as far from the neighbour as from the target
+
+
+def centroid_on_neighbour(t):
+    """A significant sub-pixel centroid shift that lands on a neighbour bright enough
+    to cause the dip. Phase 3 passes offsets under 1 px and leaves neighbours closer
+    than 1 px to TRICERATOPS, which never sees the centroid; this caught 4 of 16
+    known false positives (TOI-2099.01 among them) and 3 of 69 planets, so it
+    only lowers 'strong' to 'plausible'. Uses the saved Phase 3 results (no network)."""
+    import glob
+    pix = os.path.join(os.path.dirname(WORK), "phase3", f"s{int(t['sector']):04d}", "pix")
+    cands = glob.glob(os.path.join(pix, f"{int(t['tic'])}_*.json"))
+    if not cands:
+        return None
+    jp = min(cands, key=lambda p: abs(float(os.path.basename(p)[:-5].split("_")[1]) - t["t0"]))
+    npz = jp[:-5] + ".npz"
+    d = jload(jp)
+    c = (d.get("pixels") or {}).get("centroid") or {}
+    if d.get("status") != "ok" or c.get("xc") is None or c.get("inconclusive") or not os.path.exists(npz):
+        return None
+    if not (CN_MIN_PX <= c["offset_px"] < 1.0 and c["offset_sigma"] >= CN_SIGMA):
+        return None
+    z = np.load(npz)
+    x0, y0 = float(z["x"]), float(z["y"])
+    dt = np.hypot(c["xc"] - x0, c["yc"] - y0)
+    dmax = -2.5 * np.log10(max(d["pixels"].get("ap_depth_ppm") or 1.0, 1.0) * 1e-6) + 0.5
+    best = None
+    for tic, x, y, dm in z["nbs"]:
+        dn = float(np.hypot(c["xc"] - x, c["yc"] - y))
+        if dm <= dmax and dn < CN_CLOSER * dt and (best is None or dn < best["d_nb"]):
+            best = dict(tic=int(tic), d_nb=dn, dTmag=float(dm), offset_px=float(c["offset_px"]),
+                        sigma=float(c["offset_sigma"]))
+    return best
 
 
 def _distance(gs):

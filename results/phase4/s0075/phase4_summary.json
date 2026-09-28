@@ -1,0 +1,47 @@
+{
+ "candidates": 37,
+ "categories": {
+  "drop": 18,
+  "maybe": 17,
+  "submit": 2
+ },
+ "with_second_dip": 3,
+ "with_failing_dips": 7,
+ "binarity_flagged": 16,
+ "controls": [
+  {
+   "order": 38,
+   "tic": 298663873,
+   "role": "control",
+   "category": "maybe",
+   "rank_phase3": NaN,
+   "tier": "B",
+   "tmag": 8.56854,
+   "rstar": 1.62762,
+   "t0_btjd": 3341.242136098259,
+   "depth_ppm": 1370.1054577199834,
+   "t14_h": 11.998656338856927,
+   "snr": 9.75197,
+   "fpp": NaN,
+   "rp_rj": 0.5862562537552813,
+   "rp_rj_diluted": 0.5862562537552813,
+   "ruwe": 0.983225,
+   "binarity_flags": "blend_1px;wds",
+   "n_sectors": 41,
+   "n_spoc2min": 40,
+   "n_tess-spoc": 1,
+   "n_qlp": 0,
+   "n_tesscut": 0,
+   "n_second_dips": 0,
+   "n_failing_dips": 1,
+   "p_floor_d": 1657.8472588186203,
+   "allowed_fraction_logP": 0.07820108706633529,
+   "joint_periods": "",
+   "confirm": "spoc2min:nan/nan;tesscut:-0.27/-6.7",
+   "step": "tesscut:+0.07/-0.00",
+   "reasons": "S5 consistent-depth dips failing vetting in sector(s) 75",
+   "positives": "confirmed in spoc2min (depth ratio nan, SNR nan)",
+   "period_summary": "all P > 1658 d allowed (longer than TESS's span around the event); 95 allowed windows below that, e.g. 258.3-258.4, 258.4-258.5, 285.7-285.8, 323.3-324.1, 329.6-329.8 d; duration implies P >= 56 d for a central circular orbit"
+  }
+ ]
+}

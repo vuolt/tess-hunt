@@ -8,6 +8,13 @@
 * HTTP 429/503 (and dropped connections) are retried with exponential
   backoff; after MAX_RETRIES the call raises ServiceError so the caller can
   stop and report instead of hammering the service.
+* A 429/503 (or a Retry-After header) also slows that service down for the
+  rest of the day: its spacing doubles, up to MAX_INTERVAL.
+* When HALT_AFTER items in a row fail against one service, the run halts:
+  a flag file stops every further request, and a step started by
+  run_sector.py is ended at once (so no half-failed results are saved).
+* Every request and every retry is logged (work/cache/net_calls.log and
+  net_events.log), so call counts and rejections can be checked afterwards.
 * Bulk files come from the AWS S3 mirror (stpubdata) first, MAST second.
 """
 
@@ -35,8 +42,8 @@ TIMEOUT = 120
 SERVICES = {
     "skybot": SMALL_INTERVAL, "exofop": SMALL_INTERVAL, "gaia": SMALL_INTERVAL,
     "vizier": SMALL_INTERVAL, "mast_catalog": SMALL_INTERVAL, "tesscut": SMALL_INTERVAL,
-    "mast_api": SMALL_INTERVAL, "mast_files": 0.25, "exoplanet_archive": SMALL_INTERVAL,
-    "villanova": SMALL_INTERVAL, "irsa": SMALL_INTERVAL,
+    "mast_api": SMALL_INTERVAL, "mast_files": SMALL_INTERVAL, "exoplanet_archive": SMALL_INTERVAL,
+    "villanova": SMALL_INTERVAL, "irsa": SMALL_INTERVAL, "cdsarc": SMALL_INTERVAL,
     "s3": None,
 }
 
@@ -44,8 +51,120 @@ S3 = "https://stpubdata.s3.amazonaws.com"
 MAST_ARCHIVE = "https://archive.stsci.edu"
 
 
+MAX_INTERVAL = 60.0       # s, the slowest a 429/503 can push a service
+SLOWDOWN_HOURS = 24       # how long a slowdown lasts
+HALT_AFTER = 3            # items in a row failing against one service -> halt
+
+
 class ServiceError(RuntimeError):
     """A service kept failing after MAX_RETRIES backoff attempts."""
+
+
+class ServiceHalt(ServiceError):
+    """The run is halted: a service failed for HALT_AFTER items in a row."""
+
+
+def _state(name: str) -> str:
+    d = os.path.join(CACHE, ".netstate")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, name)
+
+
+def _append(name: str, line: str):
+    """Append one line to a log in the cache directory (O_APPEND: safe across processes)."""
+    os.makedirs(CACHE, exist_ok=True)
+    with open(os.path.join(CACHE, name), "a") as fh:
+        fh.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {line}\n")
+
+
+def _event(service: str, msg: str):
+    """A retry, slowdown or halt: logged and shown on stderr."""
+    import sys
+    _append("net_events.log", f"{service} {msg}")
+    print(f"[net] {service}: {msg}", file=sys.stderr, flush=True)
+
+
+def halted() -> str | None:
+    """The reason the run is halted, or None."""
+    try:
+        with open(_state("HALT")) as fh:
+            return fh.read().strip() or "halted"
+    except OSError:
+        return None
+
+
+def clear_halt():
+    """Start of a run: forget an earlier halt and failure streaks (slowdowns stay)."""
+    d = _state("")
+    for f in os.listdir(d):
+        if f == "HALT" or f.endswith(".fails"):
+            os.remove(os.path.join(d, f))
+
+
+def _interval(service: str):
+    """Current spacing for a service: its base, or a recent slowdown if larger."""
+    base = SERVICES.get(service, SMALL_INTERVAL)
+    p = _state(f"{service}.interval")
+    try:
+        if time.time() - os.path.getmtime(p) < SLOWDOWN_HOURS * 3600:
+            with open(p) as fh:
+                return max(base or 0.0, float(fh.read()))
+    except (OSError, ValueError):
+        pass
+    return base
+
+
+def slow_down(service: str, retry_after: float | None = None):
+    """The service said 'too many requests' (or is overloaded): double its spacing."""
+    cur = _interval(service) or 0.05
+    p = _state(f"{service}.interval")
+    recent = os.path.exists(p) and time.time() - os.path.getmtime(p) < 60
+    # double at most once a minute (one outage should not stack up many doublings)
+    new = min(max(cur if recent else 2 * cur, retry_after or 0.0), MAX_INTERVAL)
+    if new <= cur and recent:
+        return
+    with open(_state(f"{service}.interval"), "w") as fh:
+        fh.write(f"{new:.3f}")
+    _event(service, f"slowing down: {cur:.2f}s -> {new:.2f}s between requests")
+
+
+def _streak(service: str, failed: bool):
+    """Track items in a row failing against a service; halt the run at HALT_AFTER."""
+    p = _state(f"{service}.fails")
+    if not failed:
+        if os.path.exists(p):
+            with contextlib.suppress(OSError):
+                os.remove(p)
+        return
+    with open(p, "a+") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        fh.seek(0)
+        n = int(fh.read().strip() or 0) + 1
+        fh.seek(0)
+        fh.truncate()
+        fh.write(str(n))
+    if n >= HALT_AFTER:
+        reason = f"{service}: {n} items in a row failed after {MAX_RETRIES} attempts each"
+        with open(_state("HALT"), "w") as fh:
+            fh.write(reason)
+        _event(service, "HALT: " + reason)
+        if os.environ.get("TESSHUNT_STEP_GROUP"):
+            import signal
+            os.killpg(os.getpgrp(), signal.SIGTERM)   # end the whole step (run_sector.py)
+        raise ServiceHalt(reason)
+
+
+def _check_halt():
+    reason = halted()
+    if reason:
+        raise ServiceHalt(f"run halted ({reason})")
+
+
+def _retry_after(e) -> float | None:
+    try:
+        return float(e.headers.get("Retry-After"))
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 
 def _key(*parts) -> str:
@@ -64,7 +183,7 @@ def _cache_path(service: str, key: str, ext: str) -> str:
 @contextlib.contextmanager
 def service_slot(service: str):
     """Exclusive, rate-limited access to a small service across processes."""
-    interval = SERVICES.get(service, SMALL_INTERVAL)
+    interval = _interval(service)
     if interval is None:
         yield
         return
@@ -90,21 +209,38 @@ def service_slot(service: str):
 
 def _retrying(service, fn):
     """Run fn() inside the service slot, backing off on 429/503/connection errors."""
+    _check_halt()
     for attempt in range(MAX_RETRIES):
+        wait = min(2 ** (attempt + 1), 60) * (1 + 0.25 * random.random())
         try:
             with service_slot(service):
-                return fn()
+                out = fn()
+            _append("net_calls.log", f"{service} ok")
+            _streak(service, False)
+            return out
         except urllib.error.HTTPError as e:
+            _append("net_calls.log", f"{service} {e.code}")
             if e.code == 404:
+                _streak(service, False)
                 raise FileNotFoundError(getattr(e, "url", "")) from e
             if e.code not in (429, 500, 502, 503, 504):
                 raise
             err = e
+            if e.code in (429, 503):
+                ra = _retry_after(e)
+                slow_down(service, ra)
+                wait = max(wait, ra or 0.0)
         except FileNotFoundError:
             raise
         except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as e:
+            _append("net_calls.log", f"{service} {type(e).__name__}")
             err = e
-        time.sleep(min(2 ** (attempt + 1), 60) * (1 + 0.25 * random.random()))
+        if attempt == MAX_RETRIES - 1:
+            _event(service, f"attempt {attempt + 1}/{MAX_RETRIES} failed ({err}); giving up")
+            break
+        _event(service, f"attempt {attempt + 1}/{MAX_RETRIES} failed ({err}); retrying in {wait:.0f}s")
+        time.sleep(wait)
+    _streak(service, True)
     raise ServiceError(f"{service}: giving up after {MAX_RETRIES} attempts: {err}")
 
 
@@ -221,18 +357,31 @@ def cached_call(service: str, key_parts, fn, cache: bool = True):
     if cache and os.path.exists(path):
         with open(path, "rb") as fh:
             return pickle.load(fh)
+    _check_halt()
     for attempt in range(MAX_RETRIES):
         try:
             with service_slot(service):
                 out = fn()
+            _append("net_calls.log", f"{service} ok")
+            _streak(service, False)
             break
         except Exception as e:  # noqa: BLE001  (astroquery raises many types)
             msg = str(e)
+            _append("net_calls.log", f"{service} {type(e).__name__}")
             transient = any(s in msg for s in ("429", "503", "502", "504", "timed out",
                                                "Connection", "reset", "Temporary"))
-            if not transient or attempt == MAX_RETRIES - 1:
+            if not transient:
                 raise ServiceError(f"{service}: {type(e).__name__}: {e}") from e
-            time.sleep(min(2 ** (attempt + 1), 60) * (1 + 0.25 * random.random()))
+            if "429" in msg or "503" in msg or "Too Many" in msg:
+                slow_down(service)
+            if attempt == MAX_RETRIES - 1:
+                _event(service, f"attempt {attempt + 1}/{MAX_RETRIES} failed ({msg[:120]}); giving up")
+                _streak(service, True)
+                raise ServiceError(f"{service}: {type(e).__name__}: {e}") from e
+            wait = min(2 ** (attempt + 1), 60) * (1 + 0.25 * random.random())
+            _event(service, f"attempt {attempt + 1}/{MAX_RETRIES} failed ({msg[:120]}); "
+                            f"retrying in {wait:.0f}s")
+            time.sleep(wait)
     if cache:
         tmp = path + ".part"
         with open(tmp, "wb") as fh:
@@ -259,3 +408,38 @@ def s3_list(prefix: str, delimiter: str | None = None, cache: bool = True) -> li
         if not m:
             return out
         token = m.group(1)
+
+
+def call_stats(since: str | None = None):
+    """Per-service request counts from net_calls.log: total, rejections (429/503),
+    other failures, and requests per minute (average over active minutes, and peak)."""
+    import collections
+    rows = collections.defaultdict(lambda: dict(calls=0, rejected=0, failed=0,
+                                                minutes=collections.Counter()))
+    p = os.path.join(CACHE, "net_calls.log")
+    if not os.path.exists(p):
+        return {}
+    with open(p) as fh:
+        for line in fh:
+            ts, service, status = line.split()[:3]
+            if since and ts < since:
+                continue
+            r = rows[service]
+            r["calls"] += 1
+            r["rejected"] += status in ("429", "503")
+            r["failed"] += status not in ("ok", "404", "429", "503")
+            r["minutes"][ts[:16]] += 1
+    return {s: dict(calls=r["calls"], rejected=r["rejected"], failed=r["failed"],
+                    per_min_avg=round(r["calls"] / len(r["minutes"]), 1),
+                    per_min_peak=max(r["minutes"].values())) for s, r in sorted(rows.items())}
+
+
+if __name__ == "__main__":
+    import sys
+    since = sys.argv[1] if len(sys.argv) > 1 else None
+    print(f"{'service':18s} {'calls':>8s} {'429/503':>8s} {'failed':>7s} {'avg/min':>8s} {'peak/min':>9s}")
+    for s, r in call_stats(since).items():
+        print(f"{s:18s} {r['calls']:8d} {r['rejected']:8d} {r['failed']:7d} "
+              f"{r['per_min_avg']:8.1f} {r['per_min_peak']:9d}")
+    if halted():
+        print(f"\nHALTED: {halted()}")

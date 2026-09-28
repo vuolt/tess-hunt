@@ -2,215 +2,7 @@
 
 Produced by `python scripts/phase5.py report`. Numbers: `phase5_checks.csv`; calibration on known planets: `calibration.csv`; plots: `plots/phase5/`.
 
-**Calibration.** The same checks on 52 known planets from the validation sets: 17 strong, 27 plausible, 8 doubtful. Serious flags per check: aperture 0, gp 0, evolved 0, binarity 8, eclipsing 0, physical 0, too_large 0, deep_eclipse 0. On the 6 known false positives: plausible 3, doubtful 3.
-
-## TIC 165685135 (Sector 48) — **plausible**
-
-Phase 4: **submit** → Phase 5: **submit**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (2162, 2356, 2479, 2543 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 2719 ppm (0.99× Phase 3), significance 8.1σ (Phase 3: 16.5).
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 364; radius 1.20 R☉ from Gaia FLAME). The companion is then about 0.61 R_J (TIC radius gave 0.61).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 2.0 km/s over 10 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~170 d (104–484); 87% of that range is still allowed by TESS's other observations.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
-Plot: `plots/phase5/s0048_165685135.png`
-
-## TIC 237109179 (Sector 48) — **plausible**
-
-Phase 4: **submit** → Phase 5: **submit**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1165, 1454, 2763, 5170 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1355 ppm (0.99× Phase 3), significance 6.2σ (Phase 3: 8.7). It survives, but only moderately.
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 399; radius 1.23 R☉ from Gaia FLAME). The companion is then about 0.44 R_J (TIC radius gave 0.43).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.3 km/s over 16 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~20 d (13–56); 1% of that range is still allowed by TESS's other observations. An allowed period is reachable with a moderately eccentric orbit (e ≤ 0.5).
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: aperture_marginal, gp_weak, evolved, eccentric.
-Plot: `plots/phase5/s0048_237109179.png`
-
-## TIC 239198203 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (41560, 42192, 41469, 40942 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 45828 ppm (1.00× Phase 3), significance 22.9σ (Phase 3: 75.9).
-- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (0.74 R☉) is consistent with a dwarf, giving a companion of about 1.54 R_J (17 R⊕). Not independently confirmed.
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.9 km/s over 29 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (TIC (±25 %)): of the 40 periods allowed by the second dip, 27 fit a near-circular orbit; the best is P = 22.7 d (eccentricity ≥ ~0.05).
-- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 21.1 % deep in Sector 21 (BTJD 1891.00, SNR 595), against 4.59 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
-
-**Verdict: doubtful** — failed: deep_eclipse.
-Plot: `plots/phase5/s0048_239198203.png`
-
-## TIC 142905733 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (987, 1115, 1766, 2011 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1791 ppm (0.74× Phase 3), significance 3.6σ (Phase 3: 18.0). **The dip is not robust to the choice of noise model.**
-- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 334); radius 0.68 R☉ (Gaia FLAME), so the companion is about 0.32 R_J (4 R⊕).
-- **Gaia binarity.** Gaia's astrometry is noisier than for a single star (RV error 1.2 km/s over 28 transits: no significant scatter; RUWE 1.75), but the image shape and velocities show no companion.
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~13821 d (10929–17433); 100% of that range is still allowed by TESS's other observations.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: doubtful** — failed: gp.
-Plot: `plots/phase5/s0048_142905733.png`
-
-## TIC 459793183 (Sector 48) — **plausible**
-
-Phase 4: **maybe** → Phase 5: **maybe**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3414, 3548, 3669, 3818 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 3900 ppm (0.99× Phase 3), significance 13.5σ (Phase 3: 26.9).
-- **Stellar check.** The star is **subgiant** (TIC radius 1.62 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.62 R☉ from TIC). The companion is then about 1.40 R_J (TIC radius gave 1.40).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia DR3 source).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~65 d (37–100); 28% of that range is still allowed by TESS's other observations.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
-Plot: `plots/phase5/s0048_459793183.png`
-
-## TIC 16222047 (Sector 48) — **plausible**
-
-Phase 4: **maybe** → Phase 5: **maybe**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1260, 1260, 1656, 1605 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1892 ppm (1.04× Phase 3), significance 6.1σ (Phase 3: 12.4). It survives, but only moderately.
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 448; radius 1.75 R☉ from Gaia FLAME). The companion is then about 0.73 R_J (TIC radius gave 0.74).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.5 km/s over 34 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~58 d (43–140); 63% of that range is still allowed by TESS's other observations.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: gp_weak, evolved.
-Plot: `plots/phase5/s0048_16222047.png`
-
-## TIC 155873261 (Sector 48) — **plausible**
-
-Phase 4: **maybe** → Phase 5: **maybe**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (4448, 4071, 4005, 3992 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 7563 ppm (1.45× Phase 3), significance 10.2σ (Phase 3: 11.1).
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 458; radius 2.65 R☉ from Gaia FLAME). The companion is then about 1.87 R_J (TIC radius gave 1.69).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia RV).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~1 d (1–856); 22% of that range is still allowed by TESS's other observations.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
-Plot: `plots/phase5/s0048_155873261.png`
-
-## TIC 154565237 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (869, 1063, 1092, 1180 ppm), as expected if the dip comes from this star (TIC 950815449 lies within 1 px and cannot be separated this way).
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1231 ppm (1.01× Phase 3), significance 8.3σ (Phase 3: 8.4).
-- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 113); radius 0.94 R☉ (Gaia FLAME), so the companion is about 0.32 R_J (4 R⊕).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.3 km/s over 14 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME): of the 6 periods allowed by the second dip, 0 fit a near-circular orbit; the best is P = 64.3 d (eccentricity ≥ ~0.34). Every allowed period needs a fairly eccentric orbit.
-- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 5.6 % deep in Sector 47 (BTJD 2594.32, SNR 196), against 0.12 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
-
-**Verdict: doubtful** — failed: deep_eclipse.
-Plot: `plots/phase5/s0048_154565237.png`
-
-## TIC 157264264 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: physical)
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3655, 3459, 3252, 3385 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 3566 ppm (1.01× Phase 3), significance 13.7σ (Phase 3: 28.8).
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 457; radius 1.88 R☉ from Gaia FLAME). The companion is then about 1.09 R_J (TIC radius gave 1.16).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.2 km/s over 18 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~4 d (3–6); 0% of that range is still allowed by TESS's other observations. **No allowed period is reachable even with e ≤ 0.5.**
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: doubtful** — failed: physical.
-Plot: `plots/phase5/s0048_157264264.png`
-
-## TIC 159540437 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (2237, 2331, 2952, 3776 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 4293 ppm (0.89× Phase 3), significance 5.0σ (Phase 3: 8.4). It survives, but only moderately.
-- **Stellar check.** The star is **subgiant** (TIC radius 1.85 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.85 R☉ from TIC). The companion is then about 1.25 R_J (TIC radius gave 1.25).
-- **Gaia binarity.** Gaia's astrometry is noisier than for a single star (RV error 1.5 km/s over 16 transits: no significant scatter; RUWE 2.84), but the image shape and velocities show no companion.
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~268 d (130–435); 19% of that range is still allowed by TESS's other observations. The fit is probably grazing (p = 0.67), so the size is uncertain.
-- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 4.1 % deep in Sector 60 (BTJD 2939.60, SNR 127), against 0.48 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
-
-**Verdict: doubtful** — failed: deep_eclipse.
-Plot: `plots/phase5/s0048_159540437.png`
-
-## TIC 159159589 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: binarity)
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (12362, 11898, 11897, 11737 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 14184 ppm (1.00× Phase 3), significance 16.8σ (Phase 3: 41.0).
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 363; radius 1.11 R☉ from Gaia FLAME). The companion is then about 1.29 R_J (TIC radius gave 1.10).
-- **Gaia binarity.** **Gaia's radial velocities swing by tens of km/s: a companion star on a short orbit, which could itself cause the dip.** radial velocity varies (p = 9.0e-06, renormalised GOF 4.0, amplitude 16.7 km/s); RUWE 3.88.
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~17 d (11–25); 1% of that range is still allowed by TESS's other observations. An allowed period is reachable with a moderately eccentric orbit (e ≤ 0.5).
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: doubtful** — failed: binarity.
-Plot: `plots/phase5/s0048_159159589.png`
-
-## TIC 29235065 (Sector 48) — **doubtful**
-
-Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: aperture)
-
-- **Aperture test.** **The depth changes with aperture size** (2418, 5044, 8896, 17847 ppm in 1, 1.5, 2 and 3 px apertures; worst 9.6σ from what a signal on this star would give), and fits neighbour TIC 29235068 3.3 px away better. The dip may not come from this star, or may be instrumental.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 5801 ppm (1.16× Phase 3), significance 5.9σ (Phase 3: 8.1). It survives, but only moderately.
-- **Stellar check.** The star is **subgiant** (TIC radius 1.70 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.70 R☉ from TIC). The companion is then about 1.17 R_J (TIC radius gave 1.17).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia RV).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~29 d (12–107); 30% of that range is still allowed by TESS's other observations.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: doubtful** — failed: aperture.
-Plot: `plots/phase5/s0048_29235065.png`
-
-## TIC 95747180 (Sector 48) — **plausible**
-
-Phase 4: **maybe** → Phase 5: **maybe**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (9265, 8276, 7772, 8387 ppm), as expected if the dip comes from this star.
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 8508 ppm (1.00× Phase 3), significance 9.1σ (Phase 3: 13.1).
-- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (1.22 R☉) is consistent with a dwarf, giving a companion of about 1.10 R_J (12 R⊕). Not independently confirmed.
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.6 km/s over 28 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (TIC (±25 %)): for P = 80.47 d the shape needs 8.4× the star's density on a circular orbit, i.e. an eccentricity of at least ~0.61 (≥ 0.40 at 1σ); for P = 40.24 d the shape needs 4.2× the star's density on a circular orbit, i.e. an eccentricity of at least ~0.44 (≥ 0.20 at 1σ). This is possible but most likely needs a fairly eccentric orbit.
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: star_unverified, eccentric.
-Plot: `plots/phase5/s0048_95747180.png`
-
-## TIC 298663873 (Sector 48, control) — **plausible**
-
-- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3977, 4638, 4704, 4788 ppm), as expected if the dip comes from this star (TIC 298663875 lies within 1 px and cannot be separated this way).
-- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 5136 ppm (2.01× Phase 3), significance 15.9σ (Phase 3: 27.0).
-- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 447; radius 1.63 R☉ from Gaia FLAME). The companion is then about 0.80 R_J (TIC radius gave 0.80).
-- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.1 km/s over 17 transits: no significant scatter).
-- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
-- **Physical consistency.** Fitted with this star's density (Gaia FLAME): for P = 260.17 d the shape needs 0.6× the star's density on a circular orbit, i.e. an eccentricity of at least ~0.19 (≥ 0.15 at 1σ).
-- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
-
-**Verdict: plausible** — no check failed, but some raise minor concerns: aperture_marginal, evolved.
-Plot: `plots/phase5/s0048_298663873.png`
+**Calibration.** The same checks on 77 known planets from the validation sets: 26 strong, 37 plausible, 14 doubtful. Serious flags per check: aperture 0, gp 0, evolved 0, binarity 13, eclipsing 1, physical 0, too_large 1, deep_eclipse 0. On the 11 known false positives: plausible 6, doubtful 5.
 
 ## TIC 361977189 (Sector 21) — **doubtful**
 
@@ -691,3 +483,509 @@ Phase 4: **maybe** → Phase 5: **maybe**
 
 **Verdict: plausible** — no check failed, but some raise minor concerns: variable.
 Plot: `plots/phase5/s0021_202441153.png`
+
+## TIC 165685135 (Sector 48) — **plausible**
+
+Phase 4: **submit** → Phase 5: **submit**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (2162, 2356, 2479, 2543 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 2719 ppm (0.99× Phase 3), significance 8.1σ (Phase 3: 16.5).
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 364; radius 1.20 R☉ from Gaia FLAME). The companion is then about 0.61 R_J (TIC radius gave 0.61).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 2.0 km/s over 10 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~170 d (104–484); 87% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
+Plot: `plots/phase5/s0048_165685135.png`
+
+## TIC 237109179 (Sector 48) — **plausible**
+
+Phase 4: **submit** → Phase 5: **submit**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1165, 1454, 2763, 5170 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1355 ppm (0.99× Phase 3), significance 6.2σ (Phase 3: 8.7). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 399; radius 1.23 R☉ from Gaia FLAME). The companion is then about 0.44 R_J (TIC radius gave 0.43).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.3 km/s over 16 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~20 d (13–56); 1% of that range is still allowed by TESS's other observations. An allowed period is reachable with a moderately eccentric orbit (e ≤ 0.5).
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: aperture_marginal, gp_weak, evolved, eccentric.
+Plot: `plots/phase5/s0048_237109179.png`
+
+## TIC 239198203 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (41560, 42192, 41469, 40942 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 45828 ppm (1.00× Phase 3), significance 22.9σ (Phase 3: 75.9).
+- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (0.74 R☉) is consistent with a dwarf, giving a companion of about 1.54 R_J (17 R⊕). Not independently confirmed.
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.9 km/s over 29 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)): of the 40 periods allowed by the second dip, 27 fit a near-circular orbit; the best is P = 22.7 d (eccentricity ≥ ~0.05).
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 21.1 % deep in Sector 21 (BTJD 1891.00, SNR 595), against 4.59 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: deep_eclipse.
+Plot: `plots/phase5/s0048_239198203.png`
+
+## TIC 142905733 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (987, 1115, 1766, 2011 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1791 ppm (0.74× Phase 3), significance 3.6σ (Phase 3: 18.0). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 334); radius 0.68 R☉ (Gaia FLAME), so the companion is about 0.32 R_J (4 R⊕).
+- **Gaia binarity.** Gaia's astrometry is noisier than for a single star (RV error 1.2 km/s over 28 transits: no significant scatter; RUWE 1.75), but the image shape and velocities show no companion.
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~13821 d (10929–17433); 100% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0048_142905733.png`
+
+## TIC 459793183 (Sector 48) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3414, 3548, 3669, 3818 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 3900 ppm (0.99× Phase 3), significance 13.5σ (Phase 3: 26.9).
+- **Stellar check.** The star is **subgiant** (TIC radius 1.62 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.62 R☉ from TIC). The companion is then about 1.40 R_J (TIC radius gave 1.40).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia DR3 source).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~65 d (37–100); 28% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
+Plot: `plots/phase5/s0048_459793183.png`
+
+## TIC 16222047 (Sector 48) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1260, 1260, 1656, 1605 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1892 ppm (1.04× Phase 3), significance 6.1σ (Phase 3: 12.4). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 448; radius 1.75 R☉ from Gaia FLAME). The companion is then about 0.73 R_J (TIC radius gave 0.74).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.5 km/s over 34 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~58 d (43–140); 63% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: gp_weak, evolved.
+Plot: `plots/phase5/s0048_16222047.png`
+
+## TIC 155873261 (Sector 48) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (4448, 4071, 4005, 3992 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 7563 ppm (1.45× Phase 3), significance 10.2σ (Phase 3: 11.1).
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 458; radius 2.65 R☉ from Gaia FLAME). The companion is then about 1.87 R_J (TIC radius gave 1.69).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia RV).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~1 d (1–856); 22% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
+Plot: `plots/phase5/s0048_155873261.png`
+
+## TIC 154565237 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (869, 1063, 1092, 1180 ppm), as expected if the dip comes from this star (TIC 950815449 lies within 1 px and cannot be separated this way).
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1231 ppm (1.01× Phase 3), significance 8.3σ (Phase 3: 8.4).
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 113); radius 0.94 R☉ (Gaia FLAME), so the companion is about 0.32 R_J (4 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.3 km/s over 14 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME): of the 6 periods allowed by the second dip, 0 fit a near-circular orbit; the best is P = 64.3 d (eccentricity ≥ ~0.34). Every allowed period needs a fairly eccentric orbit.
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 5.6 % deep in Sector 47 (BTJD 2594.32, SNR 196), against 0.12 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: deep_eclipse.
+Plot: `plots/phase5/s0048_154565237.png`
+
+## TIC 157264264 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: physical)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3655, 3459, 3252, 3385 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 3566 ppm (1.01× Phase 3), significance 13.7σ (Phase 3: 28.8).
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 457; radius 1.88 R☉ from Gaia FLAME). The companion is then about 1.09 R_J (TIC radius gave 1.16).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.2 km/s over 18 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~4 d (3–6); 0% of that range is still allowed by TESS's other observations. **No allowed period is reachable even with e ≤ 0.5.**
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: physical.
+Plot: `plots/phase5/s0048_157264264.png`
+
+## TIC 159540437 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (2237, 2331, 2952, 3776 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 4293 ppm (0.89× Phase 3), significance 5.0σ (Phase 3: 8.4). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (TIC radius 1.85 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.85 R☉ from TIC). The companion is then about 1.25 R_J (TIC radius gave 1.25).
+- **Gaia binarity.** Gaia's astrometry is noisier than for a single star (RV error 1.5 km/s over 16 transits: no significant scatter; RUWE 2.84), but the image shape and velocities show no companion.
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~268 d (130–435); 19% of that range is still allowed by TESS's other observations. The fit is probably grazing (p = 0.67), so the size is uncertain.
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 4.1 % deep in Sector 60 (BTJD 2939.60, SNR 127), against 0.48 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: deep_eclipse.
+Plot: `plots/phase5/s0048_159540437.png`
+
+## TIC 159159589 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: binarity)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (12362, 11898, 11897, 11737 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 14184 ppm (1.00× Phase 3), significance 16.8σ (Phase 3: 41.0).
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 363; radius 1.11 R☉ from Gaia FLAME). The companion is then about 1.29 R_J (TIC radius gave 1.10).
+- **Gaia binarity.** **Gaia's radial velocities swing by tens of km/s: a companion star on a short orbit, which could itself cause the dip.** radial velocity varies (p = 9.0e-06, renormalised GOF 4.0, amplitude 16.7 km/s); RUWE 3.88.
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~17 d (11–25); 1% of that range is still allowed by TESS's other observations. An allowed period is reachable with a moderately eccentric orbit (e ≤ 0.5).
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: binarity.
+Plot: `plots/phase5/s0048_159159589.png`
+
+## TIC 29235065 (Sector 48) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: aperture)
+
+- **Aperture test.** **The depth changes with aperture size** (2418, 5044, 8896, 17847 ppm in 1, 1.5, 2 and 3 px apertures; worst 9.6σ from what a signal on this star would give), and fits neighbour TIC 29235068 3.3 px away better. The dip may not come from this star, or may be instrumental.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 5801 ppm (1.16× Phase 3), significance 5.9σ (Phase 3: 8.1). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (TIC radius 1.70 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.70 R☉ from TIC). The companion is then about 1.17 R_J (TIC radius gave 1.17).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia RV).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~29 d (12–107); 30% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: aperture.
+Plot: `plots/phase5/s0048_29235065.png`
+
+## TIC 95747180 (Sector 48) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (9265, 8276, 7772, 8387 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 8508 ppm (1.00× Phase 3), significance 9.1σ (Phase 3: 13.1).
+- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (1.22 R☉) is consistent with a dwarf, giving a companion of about 1.10 R_J (12 R⊕). Not independently confirmed.
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.6 km/s over 28 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)): for P = 80.47 d the shape needs 8.4× the star's density on a circular orbit, i.e. an eccentricity of at least ~0.61 (≥ 0.40 at 1σ); for P = 40.24 d the shape needs 4.2× the star's density on a circular orbit, i.e. an eccentricity of at least ~0.44 (≥ 0.20 at 1σ). This is possible but most likely needs a fairly eccentric orbit.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: star_unverified, eccentric.
+Plot: `plots/phase5/s0048_95747180.png`
+
+## TIC 298663873 (Sector 48, control) — **plausible**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3977, 4638, 4704, 4788 ppm), as expected if the dip comes from this star (TIC 298663875 lies within 1 px and cannot be separated this way).
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 5136 ppm (2.01× Phase 3), significance 15.9σ (Phase 3: 27.0).
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 447; radius 1.63 R☉ from Gaia FLAME). The companion is then about 0.80 R_J (TIC radius gave 0.80).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.1 km/s over 17 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME): for P = 260.17 d the shape needs 0.6× the star's density on a circular orbit, i.e. an eccentricity of at least ~0.19 (≥ 0.15 at 1σ).
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: aperture_marginal, evolved.
+Plot: `plots/phase5/s0048_298663873.png`
+
+## TIC 377367194 (Sector 75) — **strong**
+
+Phase 4: **submit** → Phase 5: **submit**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (9628, 9756, 9424, 8643 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 10427 ppm (0.99× Phase 3), significance 12.1σ (Phase 3: 21.2).
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 129); radius 0.66 R☉ (Gaia FLAME), so the companion is about 0.65 R_J (7 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.2 km/s over 39 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~153 d (127–214); 62% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: strong** — every check passed.
+Plot: `plots/phase5/s0075_377367194.png`
+
+## TIC 356541469 (Sector 75) — **doubtful**
+
+Phase 4: **submit** → Phase 5: **maybe** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1762, 2146, 4127, 7021 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1706 ppm (0.99× Phase 3), significance 4.5σ (Phase 3: 12.1). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 335); radius 1.43 R☉ (Gaia FLAME), so the companion is about 0.58 R_J (6 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.8 km/s over 39 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~1363 d (870–4166); 96% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_356541469.png`
+
+## TIC 136945159 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: aperture)
+
+- **Aperture test.** **The depth changes with aperture size** (8039, 1299, 294, -11805 ppm in 1, 1.5, 2 and 3 px apertures; worst 3.7σ from what a signal on this star would give), and fits neighbour TIC 136945156 6.9 px away better. The dip may not come from this star, or may be instrumental.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 14625 ppm (1.42× Phase 3), significance 6.2σ (Phase 3: 14.9). It survives, but only moderately.
+- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (0.61 R☉) is consistent with a dwarf, giving a companion of about 0.60 R_J (7 R⊕). Not independently confirmed.
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.3 km/s over 53 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~12397 d (6910–17263); 100% of that range is still allowed by TESS's other observations. The fit is probably grazing (p = 0.72), so the size is uncertain.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: aperture.
+Plot: `plots/phase5/s0075_136945159.png`
+
+## TIC 123228096 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: aperture)
+
+- **Aperture test.** **The depth changes with aperture size** (433, 1023, 1350, 2355 ppm in 1, 1.5, 2 and 3 px apertures; worst 6.0σ from what a signal on this star would give). The dip may not come from this star, or may be instrumental.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 397 ppm (1.03× Phase 3), significance 6.7σ (Phase 3: 11.9). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 257, but radius 3.00 R☉; radius 3.00 R☉ from Gaia FLAME). The companion is then about 0.57 R_J (TIC radius gave 0.56).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.2 km/s over 19 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~389 d (232–1250); 62% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: aperture.
+Plot: `plots/phase5/s0075_123228096.png`
+
+## TIC 233061874 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (3464, 1431, 1194, 1643 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 5237 ppm (0.98× Phase 3), significance 6.1σ (Phase 3: 9.1). It survives, but only moderately.
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 244); radius 0.75 R☉ (Gaia FLAME), so the companion is about 0.54 R_J (6 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.0 km/s over 21 transits: no significant scatter).
+- **Variability.** Catalogued as variable: Gaia DR3 lists it as variable (SOLAR_LIKE, score 0.59); VSX Gaia DR3 2158734886064331648 (ROT) at 0″.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~17683 d (13283–19397); 100% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 2.5 % deep in Sector 78 (BTJD 3434.79, SNR 89), against 0.53 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: deep_eclipse.
+Plot: `plots/phase5/s0075_233061874.png`
+
+## TIC 159414231 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1806, 1980, 2331, 4162 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 2268 ppm (1.04× Phase 3), significance 4.3σ (Phase 3: 16.2). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 385; radius 1.52 R☉ from Gaia FLAME). The companion is then about 0.69 R_J (TIC radius gave 0.65).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.1 km/s over 22 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~989 d (417–3201); 62% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_159414231.png`
+
+## TIC 156408956 (Sector 75) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1568, 370, 1030, 1472 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1475 ppm (0.89× Phase 3), significance 5.6σ (Phase 3: 10.6). It survives, but only moderately.
+- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (0.83 R☉) is consistent with a dwarf, giving a companion of about 0.33 R_J (4 R⊕). Not independently confirmed.
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.8 km/s over 47 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~7639 d (5087–12721); 100% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: gp_weak, star_unverified.
+Plot: `plots/phase5/s0075_156408956.png`
+
+## TIC 154014371 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (625, -127, 1012, 1615 ppm), as expected if the dip comes from this star (TIC 154014373 lies within 1 px and cannot be separated this way).
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 917 ppm (0.87× Phase 3), significance 4.1σ (Phase 3: 10.0). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 287, but radius 2.34 R☉; radius 2.34 R☉ from Gaia FLAME). The companion is then about 0.74 R_J (TIC radius gave 0.72).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.4 km/s over 17 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~250 d (95–1092); 53% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_154014371.png`
+
+## TIC 298664280 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: deep_eclipse)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (453, 186, 411, 170 ppm), as expected if the dip comes from this star (TIC 298664276, 298664274 lies within 1 px and cannot be separated this way).
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1010 ppm (0.93× Phase 3), significance 5.0σ (Phase 3: 11.3). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (TIC radius 2.39 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 2.39 R☉ from TIC). The companion is then about 0.77 R_J (TIC radius gave 0.77).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.2 km/s over 22 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~632 d (380–1853); 39% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 1.1 % deep in Sector 73 (BTJD 3290.65, SNR 66), against 0.11 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: deep_eclipse.
+Plot: `plots/phase5/s0075_298664280.png`
+
+## TIC 233163483 (Sector 75) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1010, 1294, 1329, 1491 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1691 ppm (1.04× Phase 3), significance 8.4σ (Phase 3: 13.5).
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 452; radius 2.01 R☉ from Gaia FLAME). The companion is then about 0.79 R_J (TIC radius gave 0.77).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.7 km/s over 26 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME): of the 9 periods allowed by the second dip, 2 fit a near-circular orbit; the best is P = 58.9 d (eccentricity ≥ ~0.27).
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: evolved.
+Plot: `plots/phase5/s0075_233163483.png`
+
+## TIC 297982503 (Sector 75) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1954, 2478, 9024, 17396 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 3812 ppm (0.90× Phase 3), significance 5.5σ (Phase 3: 20.0). It survives, but only moderately.
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 310); radius 0.84 R☉ (Gaia FLAME), so the companion is about 0.53 R_J (6 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.0 km/s over 34 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~6681 d (4631–11760); 100% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: gp_weak.
+Plot: `plots/phase5/s0075_297982503.png`
+
+## TIC 284889107 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: aperture, deep_eclipse)
+
+- **Aperture test.** **The depth changes with aperture size** (1402, 2313, 2377, 3901 ppm in 1, 1.5, 2 and 3 px apertures; worst 4.2σ from what a signal on this star would give). The dip may not come from this star, or may be instrumental.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 2536 ppm (0.93× Phase 3), significance 8.8σ (Phase 3: 8.0).
+- **Stellar check.** The star is **subgiant** (TIC radius 1.83 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.83 R☉ from TIC). The companion is then about 0.93 R_J (TIC radius gave 0.93).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.0 km/s over 16 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~30 d (17–86); 0% of that range is still allowed by TESS's other observations. An allowed period is reachable with a moderately eccentric orbit (e ≤ 0.5).
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 3.6 % deep in Sector 86 (BTJD 3638.22, SNR 100), against 0.27 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: aperture, deep_eclipse.
+Plot: `plots/phase5/s0075_284889107.png`
+
+## TIC 160585420 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: binarity, deep_eclipse)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (432, 805, 846, 1502 ppm), as expected if the dip comes from this star (TIC 160585423 lies within 1 px and cannot be separated this way).
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1753 ppm (0.97× Phase 3), significance 5.9σ (Phase 3: 12.6). It survives, but only moderately.
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 430; radius 1.71 R☉ from Gaia FLAME). The companion is then about 0.71 R_J (TIC radius gave 0.75).
+- **Gaia binarity.** **Gaia's radial velocities swing by tens of km/s: a companion star on a short orbit, which could itself cause the dip.** radial velocity varies (p = 0.0e+00, renormalised GOF 14.0, amplitude 39.8 km/s); RUWE 2.12.
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~729 d (417–2727); 44% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 10.3 % deep in Sector 84 (BTJD 3600.60, SNR 45), against 0.18 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: binarity, deep_eclipse.
+Plot: `plots/phase5/s0075_160585420.png`
+
+## TIC 365950198 (Sector 75) — **plausible**
+
+Phase 4: **maybe** → Phase 5: **maybe**
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (-1772, 2883, 3631, 4197 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 3943 ppm (1.21× Phase 3), significance 6.1σ (Phase 3: 10.9). It survives, but only moderately.
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 260); radius 0.89 R☉ (Gaia FLAME), so the companion is about 0.50 R_J (6 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.2 km/s over 25 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~1952 d (1534–3670); 96% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: plausible** — no check failed, but some raise minor concerns: aperture_marginal, gp_weak.
+Plot: `plots/phase5/s0075_365950198.png`
+
+## TIC 252475531 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (2859, 3589, 5023, 6678 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 8895 ppm (1.30× Phase 3), significance 4.7σ (Phase 3: 16.9). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 313); radius 0.74 R☉ (Gaia FLAME), so the companion is about 0.59 R_J (7 R⊕).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 1.4 km/s over 28 transits: no significant scatter).
+- **Variability.** Catalogued as variable: Gaia DR3 lists it as variable (SOLAR_LIKE, score 0.50); VSX Gaia DR3 851774345026498688 (ROT) at 0″.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~5811 d (1880–15519); 100% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_252475531.png`
+
+## TIC 288130743 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (31, 854, 659, 1503 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 610 ppm (0.53× Phase 3), significance 2.0σ (Phase 3: 7.5). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** The star is **subgiant** (TIC radius 1.82 R☉ only; Gaia DR3 has no evolutionary parameters for this star; radius 1.82 R☉ from TIC). The companion is then about 0.60 R_J (TIC radius gave 0.60).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.3 km/s over 15 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~11653 d (6290–16793); 100% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_288130743.png`
+
+## TIC 282856315 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: too_large)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (1903, 3250, 667, 770 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 10357 ppm (1.55× Phase 3), significance 6.0σ (Phase 3: 13.2). It survives, but only moderately.
+- **Stellar check.** Gaia DR3 has no evolutionary parameters for this star; its TIC radius (0.84 R☉) is consistent with a dwarf, giving a companion of about 0.67 R_J (8 R⊕). Not independently confirmed.
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (no Gaia DR3 source).
+- **Variability.** Catalogued as variable: VSX Gaia DR3 1617662190377240320 (ROT) at 0″.
+- **Physical consistency.** Fitted with this star's density (TIC (±25 %)), the dip's shape implies a circular-orbit period of ~15297 d (8993–18438); 96% of that range is still allowed by TESS's other observations. **R_p/R★ = 0.37 is too large for a planet.** The fit is probably grazing (p = 0.94), so the size is uncertain.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: too_large.
+Plot: `plots/phase5/s0075_282856315.png`
+
+## TIC 55723984 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (22751, 32118, 43247, 54872 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 12918 ppm (1.03× Phase 3), significance 4.9σ (Phase 3: 11.4). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** Gaia confirms a main-sequence (dwarf) star (FLAME evolutionary stage 299); radius 0.95 R☉ (Gaia FLAME), so the companion is about 1.03 R_J (12 R⊕).
+- **Gaia binarity.** Gaia's astrometry is noisier than for a single star (RV error 1.3 km/s over 35 transits: no significant scatter; RUWE 2.92), but the image shape and velocities show no companion.
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~12855 d (10696–14909); 100% of that range is still allowed by TESS's other observations. The fit is probably grazing (p = 0.97), so the size is uncertain.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_55723984.png`
+
+## TIC 367673743 (Sector 75) — **doubtful**
+
+Phase 4: **maybe** → Phase 5: **drop** (Phase 5 doubtful: gp)
+
+- **Aperture test.** The depth is the same, within the noise, in small and large apertures (-131, 2029, 1725, -600 ppm), as expected if the dip comes from this star.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 5434 ppm (1.96× Phase 3), significance 3.9σ (Phase 3: 10.4). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 425; radius 1.55 R☉ from Gaia FLAME). The companion is then about 0.79 R_J (TIC radius gave 0.76).
+- **Gaia binarity.** Gaia's astrometry is noisier than for a single star (RV error 0.7 km/s over 16 transits: no significant scatter; RUWE 1.73), but the image shape and velocities show no companion.
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~2765 d (1226–6601); 95% of that range is still allowed by TESS's other observations.
+- **Other TESS sectors.** No much deeper eclipse in any other TESS sector of this star.
+
+**Verdict: doubtful** — failed: gp.
+Plot: `plots/phase5/s0075_367673743.png`
+
+## TIC 298663873 (Sector 75, control) — **doubtful**
+
+- **Aperture test.** **The depth changes with aperture size** (-555, -610, -1283, 120 ppm in 1, 1.5, 2 and 3 px apertures; worst 4.5σ from what a signal on this star would give). The dip may not come from this star, or may be instrumental.
+- **Independent reprocessing.** Re-analysed with a different noise model (a Gaussian process fitted together with the transit): depth 1116 ppm (0.81× Phase 3), significance 3.0σ (Phase 3: 9.8). **The dip is not robust to the choice of noise model.**
+- **Stellar check.** The star is **subgiant** (FLAME evolutionary stage 447; radius 1.63 R☉ from Gaia FLAME). The companion is then about 0.59 R_J (TIC radius gave 0.59).
+- **Gaia binarity.** No sign of a close companion in Gaia's image shape or velocities (RV error 0.1 km/s over 17 transits: no significant scatter).
+- **Variability.** Not listed as variable by Gaia DR3 or the AAVSO VSX catalogue.
+- **Physical consistency.** Fitted with this star's density (Gaia FLAME), the dip's shape implies a circular-orbit period of ~18421 d (12121–19600); 100% of that range is still allowed by TESS's other observations. The fit is probably grazing (p = 0.71), so the size is uncertain.
+- **Other TESS sectors.** **Another TESS sector shows a much deeper eclipse on this star**: 0.5 % deep in Sector 57 (BTJD 2871.50, SNR 152), against 0.14 % for this dip. The star is an eclipsing binary; this dip is probably its shallower (secondary) eclipse.
+
+**Verdict: doubtful** — failed: aperture, gp, deep_eclipse.
+Plot: `plots/phase5/s0075_298663873.png`

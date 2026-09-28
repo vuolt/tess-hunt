@@ -10,6 +10,7 @@ an external website: you do that yourself with the text and files it prepares.
 
 from __future__ import annotations
 
+import glob
 import os
 import sys
 from datetime import date
@@ -194,6 +195,9 @@ def live_status():
 
 
 def show_findings(cur):
+    if cur.get("kind") == "bench":
+        st.success("Finished. The results are on the Pipeline check page.")
+        return
     from tesshunt import findings
     f = findings.fp_findings() if cur.get("kind") == "fp" else findings.sector_findings(int(cur["sector"]))
     st.subheader("What this run found")
@@ -456,8 +460,72 @@ def page_glossary():
         md(f"**{k}** — {texts.GLOSSARY[k]}")
 
 
+def page_check():
+    st.title("🧪 Pipeline check")
+    md("How good is the pipeline? Give it objects whose nature scientists have already settled — "
+       f"confirmed planets and confirmed {T('false positive', 'false positives')} from the "
+       f"{T('TOI')} list — and see whether it finds each dip and what it decides. It runs the same "
+       "code as a sector search, on just those stars, in its own folder (sector results are never "
+       "touched). It is not told the answer: the catalogue check ignores the star's own TOI entry, "
+       "and the known orbit is not passed on.")
+    md("**A good pipeline keeps the planets and rejects the false positives.** It looks for single "
+       "dips, so the random sample only uses orbits of 15 days or more. Each object takes about "
+       "2 minutes.")
+    cur = runner.current()
+    running = bool(cur and cur["running"])
+    entries = st.text_area("Objects to test, one per line (TOI numbers or TIC numbers)",
+                           placeholder="TOI-2099.01\nTIC 142387023\n1824.01", disabled=running)
+    c1, c2, c3 = st.columns(3)
+    planets = c1.number_input("Add random confirmed planets", 0, 200, value=5, disabled=running)
+    fps = c2.number_input("Add random confirmed false positives", 0, 200, value=5, disabled=running)
+    sector = c3.number_input("Sector (0 = choose one with a transit)", 0, 200, value=0, disabled=running,
+                             help="The same star can give a different result in another sector.")
+    lines = [x for x in entries.splitlines() if x.strip()]
+    n = len(lines) + planets + fps
+    st.caption(f"About {max(1, 2 * n)} minutes for {n} objects." if n else "Nothing chosen yet.")
+    if st.button("▶ Start the check", type="primary", disabled=running or not n, key="start_bench"):
+        try:
+            runner.start_bench(lines, planets, fps, sector or None)
+            st.rerun()
+        except RuntimeError as e:
+            st.error(str(e))
+    if cur and cur.get("kind") == "bench":
+        if st.button("■ Stop", disabled=not running, key="stop_bench"):
+            runner.stop()
+            st.rerun()
+        live_status()
+    runs = sorted(glob.glob(data.path("results", "benchmark", "*", "results.csv")), reverse=True)
+    if not runs:
+        return
+    st.header("Results")
+    names = [os.path.basename(os.path.dirname(p)) for p in runs]
+    name = st.selectbox("Check", names)
+    df = pd.read_csv(runs[names.index(name)])
+    summ = os.path.join(os.path.dirname(runs[names.index(name)]), "summary.md")
+    if os.path.exists(summ):
+        for ln in open(summ):
+            if ln.startswith("- **"):
+                md(ln.strip())
+    mark = {True: "✅", False: "❌"}
+    show = pd.DataFrame({
+        "Object": "TOI-" + df.toi.astype(str), "TIC": df.tic, "What it really is": df.truth,
+        "Sector": df.get("sector"), "What the pipeline did": df.outcome})
+    for c, label in (("found", "Dip found"), ("check_shape", "1"), ("check_duration", "2"),
+                     ("check_edge", "3"), ("check_pixels", "4"), ("check_asteroid", "5"),
+                     ("check_catalogue", "6"), ("check_fpp", "7")):
+        if c in df:
+            show[label] = [mark.get(x, "") if not (isinstance(x, float) and np.isnan(x)) else ""
+                           for x in df[c].map(lambda x: {"True": True, "False": False}.get(str(x), x))]
+    if "verdict" in df:
+        show["Expert verdict"] = df.verdict.fillna("")
+    st.dataframe(show, hide_index=True, use_container_width=True)
+    md("Checks: 1 dip shape · 2 duration fits the star · 3 not a data-gap artefact · 4 on the target "
+       "star (pixels) · 5 not an asteroid · 6 not a known eclipsing binary · 7 false-positive "
+       "probability. A blank means the check did not run.")
+
+
 PAGES = {"Candidates": page_candidates, "Workflow": page_workflow, "Results": page_results,
-         "Run": page_run, "Glossary": page_glossary}
+         "Run": page_run, "Pipeline check": page_check, "Glossary": page_glossary}
 
 
 def main():

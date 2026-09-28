@@ -26,6 +26,7 @@ STEP_NAMES = ["select", "search", "phase2-report", "phase3-lc", "phase3-pixels",
               "phase3-report", "phase4", "pht-plots", "expert-checks", "expert-report",
               "injection-vetting"]
 FP_STEP_NAMES = ["fp-tables", "fp-lc", "fp-report"]
+BENCH_STEP_NAMES = ["benchmark"]
 STEP_WORDS = {
     "select": "choosing the stars to search",
     "search": "searching every light curve for dips",
@@ -42,6 +43,7 @@ STEP_WORDS = {
     "fp-lc": "checking light curves for eclipsing-binary signs",
     "fp-report": "comparing with known planets and writing the list of likely false positives",
     "injection-vetting": "measuring how many real planets the checks would keep",
+    "benchmark": "running the pipeline on the chosen known planets and false positives",
 }
 
 
@@ -62,7 +64,7 @@ def _alive(pid: int) -> bool:
     if os.path.exists(cmd):
         try:
             line = open(cmd, "rb").read()
-            return b"run_sector.py" in line or b"run_fp_triage.py" in line
+            return any(x in line for x in (b"run_sector.py", b"run_fp_triage.py", b"benchmark.py"))
         except OSError:
             return False
     return True
@@ -76,6 +78,8 @@ def current() -> dict | None:
 
 
 def label(st: dict) -> str:
+    if st.get("kind") == "bench":
+        return "Pipeline check"
     return "False-positive check" if st.get("kind") == "fp" else f"Sector {st['sector']}"
 
 
@@ -119,6 +123,18 @@ def start_fp(procs: int = 2, refresh: bool = False, limit: int = 500, _cmd: list
                    kind="fp", sector=None)
 
 
+def start_bench(entries: list[str], planets: int = 0, false_positives: int = 0,
+                sector: int | None = None, name: str | None = None, _cmd: list | None = None) -> dict:
+    """Start scripts/benchmark.py: the pipeline on chosen known planets and false positives."""
+    name = name or time.strftime("%Y%m%d-%H%M%S")
+    cmd = [sys.executable, data.path("scripts", "benchmark.py"), *[e for e in entries if e.strip()],
+           "--planets", str(int(planets)), "--false-positives", str(int(false_positives)), "--name", name]
+    if sector:
+        cmd += ["--sector", str(int(sector))]
+    return _launch(_cmd or cmd, os.path.join(RUN_DIR, "benchmark.log"), list(BENCH_STEP_NAMES),
+                   kind="bench", sector=None, name=name)
+
+
 def stop() -> bool:
     """Stop the run and every worker it started (they share a process group)."""
     st = current()
@@ -147,7 +163,7 @@ def progress(log_text: str, steps: list[str] | None = None) -> dict:
     Only the part of the log after the last "started from the app" line counts,
     except that steps finished by earlier attempts stay done (they are cached)."""
     steps = steps or STEP_NAMES
-    known = set(STEP_NAMES) | set(FP_STEP_NAMES) | set(steps)
+    known = set(STEP_NAMES) | set(FP_STEP_NAMES) | set(BENCH_STEP_NAMES) | set(steps)
     done, current_step, failed, frac = [], None, None, None
     for line in log_text.splitlines():
         m = _START.match(line)

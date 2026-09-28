@@ -2,7 +2,7 @@
 
 Produced by `python scripts/phase5.py report`. Numbers: `phase5_checks.csv`; calibration on known planets: `calibration.csv`; plots: `plots/phase5/`.
 
-**Calibration.** The same checks on 77 known planets from the validation sets: 27 strong, 36 plausible, 14 doubtful. Serious flags per check: aperture 0, gp 0, evolved 0, binarity 13, eclipsing 1, physical 0, too_large 1, deep_eclipse 0. On the 11 known false positives: doubtful 5, plausible 5, strong 1.
+**Calibration.** The same checks on 77 known planets from the validation sets: 26 strong, 37 plausible, 14 doubtful. Serious flags per check: aperture 0, gp 0, evolved 0, binarity 13, eclipsing 1, physical 0, too_large 1, deep_eclipse 0. On the 11 known false positives: plausible 6, doubtful 5.
 
 ## TIC 361977189 (Sector 21) — **doubtful**
 

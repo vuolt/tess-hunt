@@ -38,7 +38,9 @@ at <= ~1.7 requests/s with exponential backoff.
 """
 
 import argparse
+import contextlib
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -86,6 +88,9 @@ def main():
             return
     env = dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
                PYTHONWARNINGS="ignore")
+    from tesshunt import net
+    net.clear_halt()
+    env["TESSHUNT_STEP_GROUP"] = "1"   # a halt in net.py ends the whole step
     started = args.start is None
     for name, cmd in STEPS:
         started = started or name == args.start
@@ -98,7 +103,22 @@ def main():
         if args.dry_run:
             continue
         t0 = time.time()
-        r = subprocess.run(argv, env=env)
+        # own process group, so a halt in net.py can end the step and its workers;
+        # stopping this script stops the step too
+        child = subprocess.Popen(argv, env=env, start_new_session=True)
+
+        def _stop(signum, _frame, child=child):
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(child.pid, signal.SIGTERM)
+            sys.exit(128 + signum)
+        signal.signal(signal.SIGTERM, _stop)
+        signal.signal(signal.SIGINT, _stop)
+        r = subprocess.CompletedProcess(argv, child.wait())
+        if net.halted():
+            print(f"step '{name}' HALTED: {net.halted()}.\nA service kept failing, so the run "
+                  f"stopped instead of retrying. Check the service (and work/cache/net_events.log), "
+                  f"then rerun with --from {name}", file=sys.stderr)
+            sys.exit(3)
         if r.returncode != 0:
             print(f"step '{name}' failed (exit {r.returncode}); fix and rerun with "
                   f"--from {name}", file=sys.stderr)

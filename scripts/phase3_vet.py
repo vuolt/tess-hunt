@@ -299,17 +299,14 @@ def pixel_job(row):
 
 
 def _prune_cutout(row) -> int:
-    """Delete the cutout once the pixel checks are done (the result is saved in
-    pix/*.json), so a sector of 200-s data does not fill the disk. For dips that
-    go on to check 7 (passing checks 1-6, or validation planets) a slim copy with
-    what TRICERATOPS needs is kept; later steps that need the full cutout (the
-    Phase 5 aperture test of the final shortlist) download it again."""
+    """Once the pixel checks are done (the result is saved in pix/*.json), delete
+    the stored cutout of a dip that stops here, so a sector of 200-s data does
+    not fill the disk. Dips that go on (passing checks 1-6, or validation
+    planets) keep theirs: the follow-up and expert checks read it again."""
     k = row["key"]
-    goes_on = bool(row.get("is_validation")) or bool(passed_lc(k, row["snr"]) and passed_pix(k, row["snr"]))
-    try:
-        return v.forget_tesscut(row["ra"], row["dec"], SECTOR, keep_slim=goes_on)
-    except Exception:  # noqa: BLE001  (a broken cache file: just remove it)
-        return v.forget_tesscut(row["ra"], row["dec"], SECTOR)
+    if bool(row.get("is_validation")) or bool(passed_lc(k, row["snr"]) and passed_pix(k, row["snr"])):
+        return 0
+    return v.forget_tesscut(row["ra"], row["dec"], SECTOR)
 
 
 def retry_asteroid(row, r, out):

@@ -477,8 +477,13 @@ def density_fit(t, f, t0, t14, depth, exp_time, rho_star, rho_err, known_period=
         p0 = np.array([t0, rp0, 0.3, np.log10(np.clip(rho0, 0.01, 50)), 1.0])
         scale = np.array([t14 / 20, rp0 / 10, 0.2, 0.2, 1e-4])
     ndim = len(p0)
-    start = []
+    start, tries = [], 0
     while len(start) < nwalkers:
+        tries += 1
+        if tries > 200 * nwalkers:
+            # e.g. a star whose catalogued density allows no orbit with this transit
+            raise RuntimeError(f"no valid starting point for the fit after {tries - 1} tries "
+                               f"(rho_star {rho_star:.3g}, T14 {t14 * 24:.1f} h, depth {depth:.3g})")
         q = p0 + scale * rng.standard_normal(ndim)
         q[2] = abs(q[2])
         if np.isfinite(lnprob(q)):

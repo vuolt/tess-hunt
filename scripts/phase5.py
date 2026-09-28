@@ -279,7 +279,7 @@ def run_target(t):
         tt, ff = ms.candidate_detrend(lc, t["t14"])
         w = (np.abs(tt - t["t0"]) < max(2.5 * t["t14"], 0.5)) & ex._keep_mask(tt, other)
         rho, drho, src = rho_prior(dict(mass=t["mass"], radius=res["star"]["radius"] or t["rad"]), gs)
-        if rho is None:
+        if rho is None or not np.isfinite(rho) or not (drho is not None and np.isfinite(drho)):
             return dict(error="no stellar density")
         out = dict(rho_star=rho, rho_err=drho, rho_source=src)
         rng = np.random.default_rng(3)

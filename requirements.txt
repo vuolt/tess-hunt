@@ -12,3 +12,4 @@ tess-point>=0.9
 celerite2>=0.3
 K2fov>=7
 streamlit>=1.37
+scikit-learn>=1.3

@@ -62,6 +62,11 @@ VARIANTS = {
         ("SNR >= 7", lambda r: r.get("sec_snr", 0) >= 7),
         ("SNR >= 7 and >= 10 % of the transit depth", lambda r: r.get("sec_snr", 0) >= 7 and r.get("sec_ratio", 0) >= 0.1),
         ("SNR >= 10 and >= 10 % of the transit depth", lambda r: r.get("sec_snr", 0) >= 10 and r.get("sec_ratio", 0) >= 0.1),
+        # physical versions (added after the first validation; confirmed on the held-out sample):
+        # near phase 0.5 and deeper than the hottest, most reflective planet could make it
+        ("SNR >= 7, phase 0.5 +- 0.1, > 3 sigma deeper than any planet", lambda r: _sec(r, 0.1)),
+        ("SNR >= 7, phase 0.5 +- 0.05, > 3 sigma deeper than any planet", lambda r: _sec(r, 0.05)),
+        ("SNR >= 7, phase 0.5 +- 0.02, > 3 sigma deeper than any planet", lambda r: _sec(r, 0.02)),
     ],
     "centroid": [
         ("3 sigma", lambda r: r.get("centroid_sigma", 0) > 3),
@@ -69,6 +74,28 @@ VARIANTS = {
         ("5 sigma and source >= 1 px away", lambda r: r.get("centroid_sigma", 0) > 5 and r.get("source_offset_px", 0) >= 1.0),
     ],
 }
+
+HOLDOUT = 300                        # second, untouched sample per validation group
+
+# Checks on the catalogue numbers alone (every candidate with a period).
+TABLE_VARIANTS = {
+    "size": [
+        ("larger than 2 R_J", lambda r: r["rp_rj"] > 2),
+        ("larger than 1.5 R_J with P > 10 d", lambda r: r["rp_rj"] > 1.5 and r["period"] > 10),
+        ("larger than 2 R_J, or 1.5 R_J with P > 10 d",
+         lambda r: r["rp_rj"] > 2 or (r["rp_rj"] > 1.5 and r["period"] > 10)),
+    ],
+    "density": [
+        ("transit > 3x longer than the star's density allows", lambda r: r["duration_ratio"] > 3),
+        ("transit > 2x longer than the star's density allows", lambda r: r["duration_ratio"] > 2),
+        ("transit > 1.5x longer than the star's density allows", lambda r: r["duration_ratio"] > 1.5),
+    ],
+}
+
+
+def _sec(r, window):
+    return (r.get("sec_snr", 0) >= 7 and abs(r.get("sec_phase", 0) - 0.5) < window
+            and r.get("sec_excess", 0) > 3)
 
 
 def jdump(path, obj):
@@ -149,7 +176,7 @@ def chance_matches(t, nss, eb, n_perm=200, seed=1):
 
 # ------------------------------------------------------------------ light curves
 
-def select_lc(t, matches, prior=None, full=False):
+def select_lc(t, matches, prior=None, full=False, holdout=False):
     """Candidates for the light-curve checks, with the sample each belongs to.
 
     Random samples of SAMPLE per group (the validation sets) are drawn once
@@ -168,12 +195,20 @@ def select_lc(t, matches, prior=None, full=False):
             pool = per[(per.group == g) & ~per.name.isin(flagged)]
             n = min(SAMPLE, len(pool))
             pick |= set(pool.name.values[rng.choice(len(pool), n, replace=False)])
-    keep = per.name.isin(pick | flagged | set(prior))
+    hold = {n for n, v in prior.items() if v == "holdout"}
+    if holdout and not hold:
+        # a second random sample of planets and false positives, never used to choose variants
+        rng = np.random.default_rng(SEED + 1)
+        for g in ("planet", "fp"):
+            pool = per[(per.group == g) & ~per.name.isin(flagged | pick | set(prior))]
+            n = min(HOLDOUT, len(pool))
+            hold |= set(pool.name.values[rng.choice(len(pool), n, replace=False)])
+    keep = per.name.isin(pick | flagged | hold | set(prior))
     if full:
         keep |= per.group == "unresolved"
     sel = per[keep].copy()
-    sel["sample"] = [prior.get(n) or ("gaia_flagged" if n in flagged else "random" if n in pick else "full")
-                     for n in sel.name]
+    sel["sample"] = [prior.get(n) or ("gaia_flagged" if n in flagged else "random" if n in pick
+                                      else "holdout" if n in hold else "full") for n in sel.name]
     return sel
 
 
@@ -224,7 +259,8 @@ def write_ledger(current_names=None):
     first = ["name", "tic", "group", "sample", "checked", "tables_date", "n_events", "sectors"]
     df = df[[c for c in first if c in df] + [c for c in df if c not in first]].sort_values("name")
     os.makedirs(OUT, exist_ok=True)
-    df.to_csv(LEDGER + ".tmp", index=False, float_format="%.6g", compression="gzip")
+    # mtime=0: the file only changes when its content does
+    df.to_csv(LEDGER + ".tmp", index=False, float_format="%.6g", compression={"method": "gzip", "mtime": 0})
     os.replace(LEDGER + ".tmp", LEDGER)
     return len(df)
 
@@ -271,12 +307,13 @@ def stage_lc(args):
     m = pd.read_csv(os.path.join(WORK, "gaia_matches.csv")) if os.path.getsize(
         os.path.join(WORK, "gaia_matches.csv")) > 1 else pd.DataFrame(columns=["name"])
     done = done_checks()
-    sel = select_lc(t, m, prior={k: v.get("sample") for k, v in done.items()}, full=args.all)
+    sel = select_lc(t, m, prior={k: v.get("sample") for k, v in done.items()}, full=args.all,
+                    holdout=args.holdout)
     sel["tables_date"] = fp.tables_date()
     sel.to_csv(os.path.join(WORK, "lc_selection.csv"), index=False)
     todo = sel[~sel.name.isin(done)]
     # most useful first: Gaia-matched, then the validation samples, then the rest (fixed random order)
-    rank = todo["sample"].map({"gaia_flagged": 0, "random": 1, "full": 2}).fillna(3)
+    rank = todo["sample"].map({"gaia_flagged": 0, "random": 1, "holdout": 2, "full": 3}).fillna(4)
     shuffle = np.random.default_rng(SEED).permutation(len(todo))
     todo = todo.assign(_r=rank.values, _s=shuffle).sort_values(["_r", "_s"]).drop(columns=["_r", "_s"])
     unres = sel[sel.group == "unresolved"]
@@ -307,6 +344,9 @@ def main():
     s = sub.add_parser("lc")
     s.add_argument("--procs", type=int, default=2)
     s.add_argument("--limit", type=int, default=0, help="check at most this many new candidates")
+    s.add_argument("--holdout", action="store_true",
+                   help="also check a second sample of known planets and false positives, used only "
+                        "to confirm the chosen check variants")
     s.add_argument("--all", action="store_true",
                    help="also check unresolved candidates outside the samples, not yet checked")
     sub.add_parser("report")

@@ -27,7 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def steps(args):
-    lc = ["phase6.py", "lc", "--all", "--procs", str(args.procs)]
+    lc = ["phase6.py", "lc", "--all", "--holdout", "--procs", str(args.procs)]
     if args.limit:
         lc += ["--limit", str(args.limit)]
     return [("fp-tables", ["phase6.py", "gaia"] + (["--refresh"] if args.refresh else [])),

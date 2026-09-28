@@ -57,7 +57,10 @@ def load_tables(refresh: bool = False) -> pd.DataFrame:
         depth_ppm=pd.to_numeric(toi["Depth (ppm)"], errors="coerce"),
         rstar=pd.to_numeric(toi["Stellar Radius (R_Sun)"], errors="coerce"),
         mstar=pd.to_numeric(toi["Stellar Mass (M_Sun)"], errors="coerce"),
-        tmag=pd.to_numeric(toi["TESS Mag"], errors="coerce")))
+        tmag=pd.to_numeric(toi["TESS Mag"], errors="coerce"),
+        teff=pd.to_numeric(toi["Stellar Eff Temp (K)"], errors="coerce"),
+        logg=pd.to_numeric(toi["Stellar log(g) (cm/s^2)"], errors="coerce"),
+        rp_re=pd.to_numeric(toi["Planet Radius (R_Earth)"], errors="coerce")))
     t["ra"], t["dec"] = _radec(toi["RA"], toi["Dec"])
     promoted = ctoi["Promoted to TOI"].notna()
     cdisp = ctoi["TFOPWG Disposition"].fillna(ctoi["User Disposition"].fillna(""))
@@ -74,9 +77,13 @@ def load_tables(refresh: bool = False) -> pd.DataFrame:
         duration_h=pd.to_numeric(c["Duration (hrs)"], errors="coerce"),
         depth_ppm=pd.to_numeric(c["Depth ppm"], errors="coerce"),
         rstar=pd.to_numeric(c["Stellar Radius (R_Sun)"], errors="coerce"),
-        mstar=np.nan, tmag=pd.to_numeric(c["TESS Mag"], errors="coerce")))
+        mstar=np.nan, tmag=pd.to_numeric(c["TESS Mag"], errors="coerce"),
+        teff=pd.to_numeric(c["Stellar Eff Temp (K)"], errors="coerce"),
+        logg=pd.to_numeric(c["Stellar log(g) (cm/s^2)"], errors="coerce"),
+        rp_re=pd.to_numeric(c["Planet Radius (R_Earth)"], errors="coerce")))
     cc["ra"], cc["dec"] = _radec(c["RA"], c["Dec"])
     out = pd.concat([t, cc], ignore_index=True)
+    out["n_on_star"] = out.groupby("tic").name.transform("size")
     out["periodic"] = (out.period > 0) & np.isfinite(out.epoch_btjd) & (out.duration_h > 0) & (out.depth_ppm > 0)
     return out
 

@@ -1,0 +1,7 @@
+check,variant,planets_flagged,planets,planet_rate,fps_flagged,fps,fp_rate,unresolved_flagged,unresolved,used
+size,larger than 2 R_J,5,1403,0.0036,113,1410,0.0801,379,8333,False
+size,larger than 1.5 R_J with P > 10 d,0,1403,0.0000,57,1410,0.0404,172,8333,False
+size,"larger than 2 R_J, or 1.5 R_J with P > 10 d",5,1403,0.0036,152,1410,0.1078,467,8333,True
+density,transit > 3x longer than the star's density allows,0,1403,0.0000,14,1410,0.0099,20,8333,False
+density,transit > 2x longer than the star's density allows,1,1403,0.0007,29,1410,0.0206,74,8333,False
+density,transit > 1.5x longer than the star's density allows,3,1403,0.0021,73,1410,0.0518,158,8333,True
